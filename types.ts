@@ -7,6 +7,8 @@ export enum ProjectStep {
   EXPORT = 'export'
 }
 
+export type ScriptMode = 'manual' | 'winner' | 'auto';
+
 export interface ScriptItem {
   id: string;
   title: string;
@@ -30,7 +32,8 @@ export interface Project {
   globalRetention: string;
   globalDuration: number;
   thumbnails: string[];
-  // Added optional fields to resolve compilation errors in legacy hooks and pages
+  scriptMode: ScriptMode;
+  winnerTemplate?: string;
   script?: string;
   scriptPrompt?: string;
   positiveInstructions?: string;

@@ -25,20 +25,22 @@ const TrendHunter: React.FC = () => {
     const projectsStr = localStorage.getItem('darkflow_ai_projects') || '[]';
     const projects = JSON.parse(projectsStr);
     
-    // Fix: Updated to match Project interface and fix naming inconsistencies
+    // Added missing required property 'scriptMode' and 'winnerTemplate' to match Project type
     const newProject: Project = {
       id: newId,
       name: trend.topic,
       niche: trend.topic,
       baseTheme: trend.reason,
       createdAt: new Date().toISOString(),
-      items: [], // Changed from titles: []
+      items: [], 
       script: '',
       thumbnails: [],
       targetAudience: 'Público interessado em ' + trend.topic,
       globalTone: 'Misterioso e Sombrio',
       globalRetention: 'AIDA',
-      globalDuration: 12
+      globalDuration: 12,
+      scriptMode: 'manual',
+      winnerTemplate: ''
     };
 
     localStorage.setItem('darkflow_ai_projects', JSON.stringify([newProject, ...projects]));

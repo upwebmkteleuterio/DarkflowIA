@@ -141,7 +141,9 @@ const AppContent: React.FC = () => {
       globalTone: 'Misterioso e Sombrio',
       globalRetention: 'AIDA',
       globalDuration: 12,
-      thumbnails: []
+      thumbnails: [],
+      scriptMode: 'manual',
+      winnerTemplate: ''
     };
     
     setProjects(prev => [newProject, ...prev]);

@@ -43,7 +43,6 @@ export const searchTrends = async (theme: string, country: string) => {
       }
     });
 
-    // Extrair links das fontes para cumprir a regra de grounding
     const sources: any[] = [];
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks) {
@@ -57,14 +56,12 @@ export const searchTrends = async (theme: string, country: string) => {
       });
     }
 
-    // Limpar duplicatas de fontes
     const uniqueSources = Array.from(new Set(sources.map(s => s.uri)))
       .map(uri => sources.find(s => s.uri === uri))
       .slice(0, 5);
 
     const trends = JSON.parse(response.text || "[]");
     
-    // Anexar as fontes a cada trend (simulando para cada uma ou globalmente)
     return trends.map((t: any, idx: number) => ({
       ...t,
       id: Date.now().toString() + idx,
@@ -133,41 +130,61 @@ export const generateScript = async (
   title: string, 
   niche: string, 
   duration: number, 
-  tone: string, 
-  retentionStructure: string,
+  mode: 'manual' | 'winner' | 'auto',
+  tone?: string, 
+  retentionStructure?: string,
+  winnerTemplate?: string,
   context?: string,
-  negatives?: string,
-  positives?: string
 ) => {
+  const logId = `ScriptGen-${Date.now().toString().slice(-4)}`;
+  console.group(`[AI SERVICE] ${logId}: Iniciando Geração de Roteiro (${mode})`);
+  
   try {
     const ai = getAI();
     const targetWordCount = duration * 140;
 
+    let modeInstructions = "";
+    if (mode === 'auto') {
+      modeInstructions = `MODO AUTOMÁTICO ATIVADO: Analise o nicho "${niche}" e o título "${title}" para determinar o melhor tom de voz e estrutura narrativa que maximizem a retenção do público. Use sua inteligência para criar algo viral.`;
+    } else if (mode === 'winner') {
+      modeInstructions = `MODO ESTRUTURA VENCEDORA ATIVADO: Siga RIGOROSAMENTE o estilo, o ritmo e a estrutura narrativa (o "esqueleto") do roteiro modelo abaixo. Adapte o conteúdo para o novo título mantendo a mesma fórmula de sucesso.
+      
+      ESTRUTURA VENCEDORA (MODELO):
+      ---
+      ${winnerTemplate}
+      ---`;
+    } else {
+      modeInstructions = `Tom de voz solicitado: ${tone}. Estrutura de Retenção: ${retentionStructure}.`;
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `Escreva um roteiro completo para YouTube para o vídeo: "${title}".
+      contents: `Atue como um roteirista sênior de canais Dark de alto desempenho.
+                 VÍDEO ALVO: "${title}".
                  Nicho: ${niche}. 
-                 Tom de voz: ${tone}. 
                  Duração alvo: ${duration} minutos (aproximadamente ${targetWordCount} palavras).
-                 Estrutura de Retenção: ${retentionStructure}.
                  
-                 ${context ? `CONTEXTO ADICIONAL / PROMPT: ${context}` : ''}
-                 ${positives ? `OBRIGATÓRIO CITAR/INCLUIR: ${positives}` : ''}
-                 ${negatives ? `PROIBIDO CITAR/INCLUIR: ${negatives}` : ''}
+                 ${modeInstructions}
+                 
+                 ${context ? `CONTEXTO ADICIONAL: ${context}` : ''}
 
                  REGRAS CRÍTICAS:
-                 1. Retorne APENAS o texto que será lido pelo narrador.
-                 2. NÃO inclua indicações visuais, sugestões de edição, timestamps ou cabeçalhos.
-                 3. NÃO use formatação Markdown como asteriscos (**) ou hashtags (#).
-                 4. O texto deve ser contínuo e pronto para ser colado em um software de conversão de texto em fala (TTS).
-                 5. Tente atingir a duração solicitada mantendo o engajamento alto.
-                 6. Comece direto no Hook do vídeo.`,
+                 1. Retorne APENAS o texto da narração.
+                 2. SEM marcações visuais, timestamps ou cabeçalhos.
+                 3. SEM formatação Markdown (negritos, hashtags).
+                 4. O texto deve ser contínuo e pronto para narração TTS.
+                 5. Comece direto no Hook irresistível.`,
     });
+    
     const text = response.text;
     if (!text) throw new Error("A IA retornou um texto vazio.");
+
+    console.log(`[AI SERVICE] ${logId}: Sucesso. Comprimento: ${text.length} caracteres.`);
+    console.groupEnd();
     return text;
-  } catch (error) {
-    console.error("Erro ao gerar roteiro:", error);
+  } catch (error: any) {
+    console.error(`[AI SERVICE] ${logId}: FALHA CRÍTICA`, error);
+    console.groupEnd();
     throw error;
   }
 };
@@ -175,13 +192,8 @@ export const generateScript = async (
 export const generateThumbnail = async (prompt: string, style: string, thumbTitle?: string, referenceImageBase64?: string) => {
   try {
     const ai = getAI();
-    
     const parts: any[] = [
-      { text: `Create a high-impact YouTube thumbnail image. 
-               Style: ${style}. 
-               Scene: ${prompt}. 
-               ${thumbTitle ? `The thumbnail should visually represent or suggest the text: "${thumbTitle}".` : ''}
-               Cinematic lighting, high contrast, viral potential, 4k detail, professional color grading.` }
+      { text: `Create a high-impact YouTube thumbnail image. Style: ${style}. Scene: ${prompt}. ${thumbTitle ? `The thumbnail should visually represent or suggest the text: "${thumbTitle}".` : ''} Cinematic lighting, high contrast, viral potential, 4k detail.` }
     ];
 
     if (referenceImageBase64) {
@@ -196,17 +208,11 @@ export const generateThumbnail = async (prompt: string, style: string, thumbTitl
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9"
-        }
-      }
+      config: { imageConfig: { aspectRatio: "16:9" } }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
     return null;
   } catch (error) {
@@ -220,16 +226,7 @@ export const generateMetadata = async (title: string, script: string) => {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Baseado no título "${title}" e no roteiro fornecido, gere metadados otimizados para YouTube.
-                 Roteiro: ${script.substring(0, 3000)}
-                 
-                 Retorne um objeto JSON com:
-                 1. "description": Uma descrição longa (aproximadamente 300-500 palavras) rica em palavras-chave de cauda longa, hashtags e apelo para o usuário.
-                 2. "chapters": Uma lista de capítulos/timestamps baseada na narrativa do roteiro (Ex: 00:00 - Introdução, 01:25 - O Segredo...).
-                 
-                 REGRAS:
-                 - Sem markdown no texto da descrição.
-                 - Os capítulos devem seguir o formato "MM:SS - Nome do Capítulo".`,
+      contents: `Baseado no título "${title}" e no roteiro, gere metadados otimizados (Descrição e Capítulos).`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
