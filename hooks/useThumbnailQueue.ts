@@ -19,13 +19,12 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
     onUpdate({ ...projectRef.current, items: updatedItems });
   }, [onUpdate]);
 
-  const processNextPending = async (style: string) => {
+  const processNextPending = async (config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
     const currentItems = projectRef.current.items || [];
-    // Busca item que ainda não tem thumbnail ou está com status pending
     const pendingItem = currentItems.find(item => item.thumbStatus === 'pending');
     
     if (!pendingItem) {
-      console.log("[THUMB-QUEUE] Fila concluída.");
+      console.log("[THUMB-QUEUE] Todas as artes concluídas.");
       setIsProcessing(false);
       return;
     }
@@ -33,48 +32,61 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
     updateItemStatus(pendingItem.id, { thumbStatus: 'generating' });
 
     try {
-      // 1. Gerar Prompt de IA baseado no roteiro e título
-      const prompt = await generateScenePrompt(pendingItem.title, pendingItem.script || "", style);
-      
-      // 2. Gerar a Thumbnail
-      const imgUrl = await generateThumbnail(prompt || pendingItem.title, style, pendingItem.title);
-      
-      if (imgUrl) {
+      let finalPrompt = config.prompt;
+
+      // Se for automático, a IA gera o prompt baseada no roteiro específico
+      if (config.mode === 'auto') {
+        const generated = await generateScenePrompt(
+          pendingItem.title, 
+          pendingItem.script || "", 
+          config.style
+        );
+        finalPrompt = generated || pendingItem.title;
+      }
+
+      // Gerar variações solicitadas
+      const newImages: string[] = [];
+      for (let i = 0; i < config.variations; i++) {
+        const imgUrl = await generateThumbnail(finalPrompt, config.style, pendingItem.title);
+        if (imgUrl) newImages.push(imgUrl);
+      }
+
+      if (newImages.length > 0) {
         updateItemStatus(pendingItem.id, { 
           thumbStatus: 'completed', 
-          thumbnails: [imgUrl, ...(pendingItem.thumbnails || [])] 
+          thumbnails: [...newImages, ...(pendingItem.thumbnails || [])] 
         });
       } else {
-        throw new Error("Falha na geração da imagem");
+        throw new Error("IA não retornou imagens.");
       }
     } catch (error) {
-      console.error("[THUMB-QUEUE] Erro:", error);
+      console.error("[THUMB-QUEUE] Erro no item:", pendingItem.title, error);
       updateItemStatus(pendingItem.id, { thumbStatus: 'failed' });
     } finally {
-      setTimeout(() => processNextPending(style), 1000);
+      // Pequeno delay entre gerações para evitar rate limit
+      setTimeout(() => processNextPending(config), 1500);
     }
   };
 
-  const handleStartBatch = (style: string) => {
+  const handleStartBatch = (config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
     if (isProcessing) return;
     
-    // Marcar todos que não tem thumb como pending para entrar na fila
+    // Marcar itens para fila (apenas os que não tem thumb ou falharam)
     const updatedItems = projectRef.current.items.map(item => ({
       ...item,
       thumbStatus: (item.thumbnails.length === 0 || item.thumbStatus === 'failed') ? 'pending' : item.thumbStatus
     }));
     
     onUpdate({ ...projectRef.current, items: updatedItems });
-    
     setIsProcessing(true);
-    setTimeout(() => processNextPending(style), 500);
+    setTimeout(() => processNextPending(config), 500);
   };
 
-  const handleRetry = (itemId: string, style: string) => {
+  const handleRetry = (itemId: string, config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
     updateItemStatus(itemId, { thumbStatus: 'pending' });
     if (!isProcessing) {
       setIsProcessing(true);
-      setTimeout(() => processNextPending(style), 500);
+      setTimeout(() => processNextPending(config), 500);
     }
   };
 

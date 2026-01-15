@@ -225,8 +225,8 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
 
           {/* Lista de Itens */}
           <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
-            {/* AJUSTE DE LARGURA: de 120px para 160px na coluna de Status */}
-            <div className="grid grid-cols-[1fr_160px_140px] p-4 border-b border-border-dark bg-card-dark/30 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            {/* AJUSTE FINAL DE COLUNAS: Título (1fr) | Status (200px) | Ações (100px) */}
+            <div className="grid grid-cols-[1fr_200px_100px] p-4 border-b border-border-dark bg-card-dark/30 text-[10px] font-black text-slate-500 uppercase tracking-widest">
               <span className="ml-4">Título do Vídeo</span>
               <span className="text-center">Status</span>
               <span className="text-right mr-4">Ações</span>
@@ -234,23 +234,23 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
 
             <div className="divide-y divide-border-dark/30 max-h-[500px] overflow-y-auto custom-scrollbar">
               {itemsArray.map((item) => (
-                <div key={item.id} className="grid grid-cols-[1fr_160px_140px] p-5 items-center hover:bg-white/5 transition-colors group">
+                <div key={item.id} className="grid grid-cols-[1fr_200px_100px] p-5 items-center hover:bg-white/5 transition-colors group">
                   <p className="text-sm font-bold text-slate-200 truncate pr-4 max-w-full" title={item.title}>
                     {item.title}
                   </p>
                   
                   <div className="flex justify-center">
-                    {item.status === 'completed' && <span className="text-[9px] font-black text-accent-green bg-accent-green/10 px-3 py-1 rounded-full border border-accent-green/20">CONCLUÍDO</span>}
-                    {item.status === 'generating' && <span className="text-[9px] font-black text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20 animate-pulse">GERANDO...</span>}
-                    {item.status === 'pending' && <span className="text-[9px] font-black text-slate-500 bg-slate-500/10 px-3 py-1 rounded-full border border-slate-500/20">FILA</span>}
-                    {item.status === 'failed' && <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">ERRO</span>}
+                    {item.status === 'completed' && <span className="text-[9px] font-black text-accent-green bg-accent-green/10 px-4 py-1.5 rounded-full border border-accent-green/20">CONCLUÍDO</span>}
+                    {item.status === 'generating' && <span className="text-[9px] font-black text-primary bg-primary/10 px-4 py-1.5 rounded-full border border-primary/20 animate-pulse">GERANDO ROTEIRO...</span>}
+                    {item.status === 'pending' && <span className="text-[9px] font-black text-slate-500 bg-slate-500/10 px-4 py-1.5 rounded-full border border-slate-500/20">NA FILA</span>}
+                    {item.status === 'failed' && <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">FALHA</span>}
                   </div>
 
-                  <div className="flex justify-end gap-2 pr-2">
+                  <div className="flex justify-end gap-1.5 pr-2">
                     {item.status === 'completed' && (
                       <button 
                         onClick={() => setSelectedItem(item)}
-                        className="size-9 bg-white/5 hover:bg-primary hover:text-white rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
+                        className="size-8 bg-white/5 hover:bg-primary hover:text-white rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
                       >
                         <span className="material-symbols-outlined text-base">edit_square</span>
                       </button>
@@ -259,7 +259,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                     {item.status === 'failed' && (
                       <button 
                         onClick={() => handleRetry(item.id)}
-                        className="size-9 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg flex items-center justify-center transition-all border border-red-500/20"
+                        className="size-8 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg flex items-center justify-center transition-all border border-red-500/20"
                       >
                         <span className="material-symbols-outlined text-base">refresh</span>
                       </button>
@@ -270,7 +270,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                         onClick={() => {
                           navigator.clipboard.writeText(item.script || '');
                         }}
-                        className="size-9 bg-white/5 hover:bg-accent-green hover:text-black rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
+                        className="size-8 bg-white/5 hover:bg-accent-green hover:text-black rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
                       >
                         <span className="material-symbols-outlined text-base">content_copy</span>
                       </button>
