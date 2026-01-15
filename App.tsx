@@ -7,29 +7,15 @@ import Ideation from './pages/Ideation';
 import Script from './pages/Script';
 import Thumbnails from './pages/Thumbnails';
 import Metadata from './pages/Metadata';
+import Export from './pages/Export';
 import TrendHunter from './pages/TrendHunter';
+import TitleGenerator from './pages/TitleGenerator';
 import Pricing from './pages/Pricing';
 import { Project, ProjectStep } from './types';
 
 const STORAGE_KEY = 'darkflow_ai_projects';
 
-const INITIAL_PROJECTS: Project[] = [
-  {
-    id: '1',
-    name: 'Mistérios do Espaço',
-    niche: 'Espaço',
-    baseTheme: 'Exploração de buracos negros e o fim do universo',
-    createdAt: new Date().toISOString(),
-    titles: [
-      { id: 'ex1', title: 'Mistérios do Espaço', tags: ['espaco', 'ciencia'], ctrScore: 'High' }
-    ],
-    script: '',
-    thumbnails: [],
-    targetAudience: 'Entusiastas de Astronomia',
-    emotionalTrigger: 'curiosity',
-    format: 'top10'
-  }
-];
+const INITIAL_PROJECTS: Project[] = [];
 
 const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => void }> = ({ projects, onUpdate }) => {
   const { id } = useParams();
@@ -47,11 +33,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     );
   }
 
-  const isTitleReady = project.titles.length > 0 && 
-                       project.name !== 'Novo Projeto de Vídeo' && 
-                       project.name.trim() !== '';
-
-  const isScriptReady = !!project.script;
+  const isReadyForBatch = project.items.length > 0 && project.niche && project.baseTheme;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -61,9 +43,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
             <h2 className="text-xl md:text-2xl font-bold font-display tracking-tight text-white truncate max-w-[300px] md:max-w-[500px]">
               Projeto: {project.name || 'Sem Nome'}
             </h2>
-            <p className="text-slate-500 text-xs md:text-sm">Fluxo de automação inteligente</p>
-          </div>
-          <div className="flex items-center gap-2">
+            <p className="text-slate-500 text-xs md:text-sm">Fábrica de Roteiros em Lote ({project.items.length} itens)</p>
           </div>
         </div>
         <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar whitespace-nowrap">
@@ -71,66 +51,62 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
             onClick={() => setStep(ProjectStep.IDEATION)}
             className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.IDEATION ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
           >
-            <span className="material-symbols-outlined text-sm">lightbulb</span>
+            <span className="material-symbols-outlined text-sm">edit_note</span>
             <p className="text-xs md:text-sm font-bold">1. Ideação</p>
           </button>
           
           <button 
-            disabled={!isTitleReady}
+            disabled={!isReadyForBatch}
             onClick={() => setStep(ProjectStep.SCRIPT)}
             className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
               step === ProjectStep.SCRIPT ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isTitleReady ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
+            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
           >
-            <span className="material-symbols-outlined text-sm">{isTitleReady ? 'description' : 'lock'}</span>
-            <p className="text-xs md:text-sm font-bold">2. Roteiro</p>
+            <span className="material-symbols-outlined text-sm">queue</span>
+            <p className="text-xs md:text-sm font-bold">2. Roteiros</p>
           </button>
           
           <button 
-            disabled={!isTitleReady}
+            disabled={!isReadyForBatch}
             onClick={() => setStep(ProjectStep.THUMBNAIL)}
             className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
               step === ProjectStep.THUMBNAIL ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isTitleReady ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
+            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
           >
-            <span className="material-symbols-outlined text-sm">{isTitleReady ? 'image' : 'lock_person'}</span>
+            <span className="material-symbols-outlined text-sm">image</span>
             <p className="text-xs md:text-sm font-bold">3. Thumbnail</p>
           </button>
 
           <button 
-            disabled={!isScriptReady}
+            disabled={!isReadyForBatch}
             onClick={() => setStep(ProjectStep.METADATA)}
             className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
               step === ProjectStep.METADATA ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isScriptReady ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
+            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
           >
-            <span className="material-symbols-outlined text-sm">{isScriptReady ? 'seo' : 'lock_person'}</span>
-            <p className="text-xs md:text-sm font-bold">4. SEO & Metadados</p>
+            <span className="material-symbols-outlined text-sm">insights</span>
+            <p className="text-xs md:text-sm font-bold">4. SEO</p>
+          </button>
+
+          <button 
+            disabled={!isReadyForBatch}
+            onClick={() => setStep(ProjectStep.EXPORT)}
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
+              step === ProjectStep.EXPORT ? 'border-primary text-primary' : 'border-transparent text-slate-400'
+            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
+          >
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            <p className="text-xs md:text-sm font-bold">5. Finalizar</p>
           </button>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-background-dark/30">
-        {!isTitleReady && step !== ProjectStep.IDEATION && (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in duration-500">
-            <div className="bg-primary/10 p-6 rounded-full mb-4">
-              <span className="material-symbols-outlined text-5xl text-primary animate-bounce">lock</span>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Etapa Bloqueada</h3>
-            <p className="text-slate-400 max-w-xs mb-6 text-sm">Você precisa definir um título na etapa de Ideação antes de prosseguir.</p>
-            <button 
-              onClick={() => setStep(ProjectStep.IDEATION)}
-              className="bg-primary px-6 py-2 rounded-lg font-bold text-white text-sm"
-            >
-              Voltar para Ideação
-            </button>
-          </div>
-        )}
-        
         {step === ProjectStep.IDEATION && <Ideation project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.SCRIPT)} />}
-        {isTitleReady && step === ProjectStep.SCRIPT && <Script project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.THUMBNAIL)} />}
-        {isTitleReady && step === ProjectStep.THUMBNAIL && <Thumbnails project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.METADATA)} />}
-        {isTitleReady && step === ProjectStep.METADATA && <Metadata project={project} onUpdate={onUpdate} />}
+        {isReadyForBatch && step === ProjectStep.SCRIPT && <Script project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.THUMBNAIL)} />}
+        {isReadyForBatch && step === ProjectStep.THUMBNAIL && <Thumbnails project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.METADATA)} />}
+        {isReadyForBatch && step === ProjectStep.METADATA && <Metadata project={project} onUpdate={onUpdate} />}
+        {isReadyForBatch && step === ProjectStep.EXPORT && <Export project={project} />}
       </div>
     </div>
   );
@@ -159,13 +135,13 @@ const AppContent: React.FC = () => {
       name: 'Novo Projeto de Vídeo',
       niche: '',
       baseTheme: '',
-      createdAt: new Date().toISOString(),
-      titles: [],
-      script: '',
-      thumbnails: [],
       targetAudience: '',
-      emotionalTrigger: 'curiosity',
-      format: 'top10'
+      createdAt: new Date().toISOString(),
+      items: [],
+      globalTone: 'Misterioso e Sombrio',
+      globalRetention: 'AIDA',
+      globalDuration: 12,
+      thumbnails: []
     };
     
     setProjects(prev => [newProject, ...prev]);
@@ -181,6 +157,7 @@ const AppContent: React.FC = () => {
           <Route path="/projects" element={<Dashboard projects={projects} setProjects={setProjects} onCreateProject={handleCreateProject} />} />
           <Route path="/projects/:id" element={<ProjectFlow projects={projects} onUpdate={handleUpdateProject} />} />
           <Route path="/trends" element={<TrendHunter />} />
+          <Route path="/title-generator" element={<TitleGenerator />} />
           <Route path="/plans" element={<Pricing />} />
           <Route path="/settings" element={<div className="p-10 text-slate-500">Configurações em breve.</div>} />
         </Routes>

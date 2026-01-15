@@ -15,6 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   const navItems = [
     { name: 'Meus Projetos', icon: 'grid_view', path: '/' },
+    { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator' },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends' },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans' },
     { name: 'Configurações', icon: 'settings', path: '/settings' },

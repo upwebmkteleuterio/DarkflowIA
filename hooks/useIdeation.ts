@@ -1,65 +1,65 @@
 
 import { useState, useCallback } from 'react';
-import { generateTitles } from '../services/geminiService';
-import { Project, TitleIdea } from '../types';
+import { Project, ScriptItem } from '../types';
 
 export const useIdeation = (project: Project, onUpdate: (updated: Project) => void) => {
   const [loading, setLoading] = useState(false);
+  const [titlesInput, setTitlesInput] = useState(project.items.map(item => item.title).join('\n'));
   const [formData, setFormData] = useState({
-    niche: project.niche || 'Mistérios e Curiosidades',
+    niche: project.niche || '',
     baseTheme: project.baseTheme || '',
-    audience: project.targetAudience || 'Entusiastas de canais Dark',
-    trigger: project.emotionalTrigger || 'curiosity',
-    format: project.format || 'top10'
+    audience: project.targetAudience || '',
   });
 
   const updateField = useCallback((field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleGenerate = async () => {
-    if (!formData.baseTheme.trim()) {
-      alert("Por favor, descreva do que o seu vídeo irá falar.");
+  const handleProcessBatch = async (onNext: () => void) => {
+    if (!formData.niche || !formData.baseTheme || !titlesInput.trim()) {
+      alert("Por favor, preencha o nicho, o tema e cole ao menos um título.");
       return;
     }
 
     setLoading(true);
-    try {
-      const titles = await generateTitles(
-        formData.niche, 
-        formData.audience, 
-        formData.trigger, 
-        formData.format,
-        formData.baseTheme
-      );
+    
+    // Transformar a string de títulos em array de ScriptItem
+    const titlesArray = titlesInput
+      .split('\n')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    const newItems: ScriptItem[] = titlesArray.map((title, index) => {
+      // Tentar manter o script se o título for idêntico ao que já existia
+      const existing = project.items.find(item => item.title === title);
       
-      const updatedTitles: TitleIdea[] = titles.map((t: any, i: number) => ({ 
-        ...t, 
-        id: Date.now().toString() + i 
-      }));
+      return existing || {
+        id: `item-${Date.now()}-${index}`,
+        title,
+        script: '',
+        status: 'pending',
+        thumbnails: []
+      };
+    });
 
-      onUpdate({
-        ...project,
-        ...formData,
-        titles: updatedTitles
-      });
-    } catch (error) {
-      console.error("Erro ao gerar títulos:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    onUpdate({
+      ...project,
+      ...formData,
+      items: newItems,
+      // Nome do projeto será o primeiro título se estiver vazio
+      name: project.name === 'Novo Projeto de Vídeo' ? (newItems[0]?.title || project.name) : project.name
+    });
 
-  const selectTitle = useCallback((title: string, onNext: () => void) => {
-    onUpdate({ ...project, name: title });
+    setLoading(false);
     onNext();
-  }, [project, onUpdate]);
+  };
 
   return {
     loading,
     formData,
+    titlesInput,
+    setTitlesInput,
     updateField,
-    handleGenerate,
-    selectTitle
+    handleProcessBatch
   };
 };

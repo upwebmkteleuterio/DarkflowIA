@@ -1,34 +1,42 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateThumbnail, generateScenePrompt } from '../services/geminiService';
-import { Project } from '../types';
+import { Project, ScriptItem } from '../types';
 
 export const useThumbnail = (project: Project, onUpdate: (updated: Project) => void) => {
   const [loading, setLoading] = useState(false);
   const [promptLoading, setPromptLoading] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  
+  // Controle de qual item da fila estamos editando a thumb
+  const [selectedItemId, setSelectedItemId] = useState<string>(project.items[0]?.id || '');
+  
+  const selectedItem = project.items.find(i => i.id === selectedItemId) || project.items[0];
+
   const [config, setConfig] = useState({
     prompt: '',
     style: 'realistic',
     variations: 1,
-    thumbTitle: project.name || ''
+    thumbTitle: selectedItem?.title || ''
   });
 
+  // Sincronizar título quando mudar o item selecionado
   useEffect(() => {
-    if (!config.thumbTitle && project.name) {
-      setConfig(prev => ({ ...prev, thumbTitle: project.name }));
+    if (selectedItem) {
+      setConfig(prev => ({ ...prev, thumbTitle: selectedItem.title }));
     }
-  }, [project.name]);
+  }, [selectedItemId]);
 
   const updateConfig = useCallback((field: string, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const handleAIPrompt = async () => {
+    if (!selectedItem) return;
     setPromptLoading(true);
     try {
-      const generated = await generateScenePrompt(project.name, project.script || "", config.style);
+      const generated = await generateScenePrompt(selectedItem.title, selectedItem.script || "", config.style);
       if (generated) {
         updateConfig('prompt', generated);
       }
@@ -39,7 +47,6 @@ export const useThumbnail = (project: Project, onUpdate: (updated: Project) => v
     }
   };
 
-  // Fixed: Added React to the import statement above to resolve the namespace error
   const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -52,7 +59,7 @@ export const useThumbnail = (project: Project, onUpdate: (updated: Project) => v
   };
 
   const handleGenerate = async () => {
-    if (!config.prompt) return;
+    if (!config.prompt || !selectedItemId) return;
     setLoading(true);
     try {
       const newThumbs = [];
@@ -61,9 +68,15 @@ export const useThumbnail = (project: Project, onUpdate: (updated: Project) => v
         if (imgUrl) newThumbs.push(imgUrl);
       }
       
+      const updatedItems = project.items.map(item => 
+        item.id === selectedItemId 
+          ? { ...item, thumbnails: [...newThumbs, ...item.thumbnails] }
+          : item
+      );
+
       onUpdate({
         ...project,
-        thumbnails: [...newThumbs, ...project.thumbnails]
+        items: updatedItems
       });
     } catch (error) {
       console.error("Erro ao gerar thumbnails:", error);
@@ -73,25 +86,32 @@ export const useThumbnail = (project: Project, onUpdate: (updated: Project) => v
   };
 
   const clearHistory = useCallback(() => {
-    if (confirm("Tem certeza que deseja limpar toda a galeria deste projeto?")) {
-      onUpdate({ ...project, thumbnails: [] });
+    if (!selectedItemId) return;
+    if (confirm("Limpar galeria deste vídeo específico?")) {
+      const updatedItems = project.items.map(item => 
+        item.id === selectedItemId ? { ...item, thumbnails: [] } : item
+      );
+      onUpdate({ ...project, items: updatedItems });
     }
-  }, [project, onUpdate]);
+  }, [project, selectedItemId, onUpdate]);
 
   const downloadImage = useCallback((url: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `thumbnail-${Date.now()}.png`;
+    link.download = `thumb-${selectedItemId}-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, []);
+  }, [selectedItemId]);
 
   return {
     loading,
     promptLoading,
     fullscreenImage,
     referenceImage,
+    selectedItemId,
+    setSelectedItemId,
+    selectedItem,
     setFullscreenImage,
     setReferenceImage,
     config,

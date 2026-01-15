@@ -9,8 +9,12 @@ interface ProjectCardProps {
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
-  const hasScript = !!project.script;
-  const thumbCount = project.thumbnails.length;
+  const totalItems = project.items.length;
+  const completedItems = project.items.filter(i => i.status === 'completed').length;
+  const completionRate = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+  
+  // Encontrar a primeira thumbnail disponível no lote para a capa
+  const coverImage = project.items.find(i => i.thumbnails.length > 0)?.thumbnails[0];
 
   return (
     <Link
@@ -19,28 +23,21 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
     >
       <div 
         className="w-full h-44 bg-center bg-no-repeat bg-cover relative" 
-        style={{ backgroundImage: `url(${project.thumbnails[0] || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop'})` }}
+        style={{ backgroundImage: `url(${coverImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop'})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-surface-dark via-surface-dark/20 to-transparent opacity-80"></div>
         
-        {/* Badge de Progresso */}
+        {/* Badge de Lote */}
         <div className="absolute top-4 left-4 flex gap-1">
-          {hasScript && (
-            <div className="bg-accent-green/20 backdrop-blur-md border border-accent-green/30 text-accent-green text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-              Roteirizado
-            </div>
-          )}
-          {thumbCount > 0 && (
-            <div className="bg-primary/20 backdrop-blur-md border border-primary/30 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-              {thumbCount} Thumbs
-            </div>
-          )}
+          <div className="bg-primary/20 backdrop-blur-md border border-primary/30 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+            {totalItems} VÍDEOS EM LOTE
+          </div>
         </div>
 
         {/* Botão Deletar */}
         <button 
           onClick={(e) => onDelete(e, project.id)}
-          className="absolute top-4 right-4 size-8 flex items-center justify-center rounded-lg bg-black/40 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white backdrop-blur-md"
+          className="absolute top-4 right-4 size-8 flex items-center justify-center rounded-lg bg-black/40 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white backdrop-blur-md z-10"
         >
           <span className="material-symbols-outlined text-lg">delete</span>
         </button>
@@ -57,13 +54,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
 
         <div className="mt-auto space-y-3">
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            <span>Conclusão</span>
-            <span className="text-primary">{hasScript && thumbCount > 0 ? '100%' : hasScript || thumbCount > 0 ? '50%' : '10%'}</span>
+            <span>Produção: {completedItems}/{totalItems}</span>
+            <span className="text-primary">{completionRate}%</span>
           </div>
           <div className="w-full h-1.5 bg-background-dark rounded-full overflow-hidden border border-border-dark">
             <div 
               className="bg-primary h-full transition-all duration-1000" 
-              style={{ width: hasScript && thumbCount > 0 ? '100%' : hasScript || thumbCount > 0 ? '50%' : '10%' }}
+              style={{ width: `${completionRate}%` }}
             ></div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrendHunter } from '../hooks/useTrendHunter';
-import { Trend } from '../types';
+import { Trend, Project } from '../types';
 
 const TrendHunter: React.FC = () => {
   const navigate = useNavigate();
@@ -25,18 +25,20 @@ const TrendHunter: React.FC = () => {
     const projectsStr = localStorage.getItem('darkflow_ai_projects') || '[]';
     const projects = JSON.parse(projectsStr);
     
-    const newProject = {
+    // Fix: Updated to match Project interface and fix naming inconsistencies
+    const newProject: Project = {
       id: newId,
       name: trend.topic,
       niche: trend.topic,
       baseTheme: trend.reason,
       createdAt: new Date().toISOString(),
-      titles: [],
+      items: [], // Changed from titles: []
       script: '',
       thumbnails: [],
       targetAudience: 'Público interessado em ' + trend.topic,
-      emotionalTrigger: 'curiosity',
-      format: 'top10'
+      globalTone: 'Misterioso e Sombrio',
+      globalRetention: 'AIDA',
+      globalDuration: 12
     };
 
     localStorage.setItem('darkflow_ai_projects', JSON.stringify([newProject, ...projects]));

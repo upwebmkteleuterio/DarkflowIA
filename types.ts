@@ -3,14 +3,19 @@ export enum ProjectStep {
   IDEATION = 'ideation',
   SCRIPT = 'script',
   THUMBNAIL = 'thumbnail',
-  METADATA = 'metadata'
+  METADATA = 'metadata',
+  EXPORT = 'export'
 }
 
-export interface TitleIdea {
+export interface ScriptItem {
   id: string;
   title: string;
-  tags: string[];
-  ctrScore: 'High' | 'Trending' | 'Optimized' | 'Panic';
+  script: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  error?: string;
+  thumbnails: string[];
+  description?: string;
+  chapters?: string;
 }
 
 export interface Project {
@@ -18,18 +23,25 @@ export interface Project {
   name: string;
   niche: string;
   baseTheme: string;
-  createdAt: string;
-  titles: TitleIdea[];
-  script: string;
-  thumbnails: string[];
   targetAudience: string;
-  emotionalTrigger: string;
-  format: string;
+  createdAt: string;
+  items: ScriptItem[];
+  globalTone: string;
+  globalRetention: string;
+  globalDuration: number;
+  thumbnails: string[];
+  // Added optional fields to resolve compilation errors in legacy hooks and pages
+  script?: string;
   scriptPrompt?: string;
-  negativeInstructions?: string;
   positiveInstructions?: string;
-  description?: string;
-  chapters?: string;
+  negativeInstructions?: string;
+}
+
+export interface TitleIdea {
+  id: string;
+  title: string;
+  tags: string[];
+  ctrScore: 'High' | 'Trending' | 'Optimized' | 'Panic';
 }
 
 export interface TrendSource {
@@ -44,10 +56,4 @@ export interface Trend {
   viralScore: number;
   marketGap: string;
   sources: TrendSource[];
-}
-
-export interface UserState {
-  credits: number;
-  plan: 'Free' | 'Pro' | 'Agency';
-  projects: Project[];
 }
