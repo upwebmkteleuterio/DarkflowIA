@@ -14,6 +14,7 @@ export interface ScriptItem {
   title: string;
   script: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';
+  thumbStatus?: 'pending' | 'generating' | 'completed' | 'failed';
   error?: string;
   thumbnails: string[];
   description?: string;
