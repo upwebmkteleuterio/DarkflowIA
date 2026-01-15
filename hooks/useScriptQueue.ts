@@ -14,7 +14,7 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
   }, [project]);
 
   const updateItemStatus = useCallback((itemId: string, updates: Partial<ScriptItem>) => {
-    const currentItems = projectRef.current.items;
+    const currentItems = projectRef.current.items || [];
     const updatedItems = currentItems.map(item => 
       item.id === itemId ? { ...item, ...updates } : item
     );
@@ -23,7 +23,8 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
   }, [onUpdate]);
 
   const processNextPending = async () => {
-    const pendingItem = projectRef.current.items.find(item => item.status === 'pending');
+    const currentItems = projectRef.current.items || [];
+    const pendingItem = currentItems.find(item => item.status === 'pending');
     
     if (!pendingItem) {
       console.log("[QUEUE] Nenhum item pendente restante. Finalizando lote.");
@@ -64,7 +65,8 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
 
   const handleStartBatch = () => {
     if (isProcessing) return;
-    const hasPending = projectRef.current.items.some(i => i.status === 'pending');
+    const currentItems = projectRef.current.items || [];
+    const hasPending = currentItems.some(i => i.status === 'pending');
     if (!hasPending) return;
 
     setIsProcessing(true);
@@ -84,6 +86,8 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
     setSelectedItem(null);
   };
 
+  const items = project.items || [];
+
   return {
     isProcessing,
     selectedItem,
@@ -92,11 +96,11 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
     handleRetry,
     handleSaveItem,
     stats: {
-      total: project.items.length,
-      completed: project.items.filter(i => i.status === 'completed').length,
-      pending: project.items.filter(i => i.status === 'pending').length,
-      failed: project.items.filter(i => i.status === 'failed').length,
-      generating: project.items.filter(i => i.status === 'generating').length,
+      total: items.length,
+      completed: items.filter(i => i.status === 'completed').length,
+      pending: items.filter(i => i.status === 'pending').length,
+      failed: items.filter(i => i.status === 'failed').length,
+      generating: items.filter(i => i.status === 'generating').length,
     }
   };
 };

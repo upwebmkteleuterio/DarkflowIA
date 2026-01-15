@@ -9,12 +9,14 @@ interface ProjectCardProps {
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
-  const totalItems = project.items.length;
-  const completedItems = project.items.filter(i => i.status === 'completed').length;
+  // Proteções contra itens indefinidos para evitar o erro "Cannot read properties of undefined (reading 'length')"
+  const itemsArray = project.items || [];
+  const totalItems = itemsArray.length;
+  const completedItems = itemsArray.filter(i => i.status === 'completed').length;
   const completionRate = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
   
   // Encontrar a primeira thumbnail disponível no lote para a capa
-  const coverImage = project.items.find(i => i.thumbnails.length > 0)?.thumbnails[0];
+  const coverImage = itemsArray.find(i => i.thumbnails && i.thumbnails.length > 0)?.thumbnails?.[0];
 
   return (
     <Link
@@ -48,7 +50,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
           <h4 className="text-white text-lg font-bold mb-1 truncate leading-tight group-hover:text-primary transition-colors">{project.name}</h4>
           <p className="text-slate-500 text-[11px] font-medium flex items-center gap-1">
             <span className="material-symbols-outlined text-[12px]">calendar_today</span>
-            {new Date(project.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {project.createdAt ? new Date(project.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '---'}
           </p>
         </div>
 

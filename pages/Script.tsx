@@ -38,6 +38,8 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
     project.scriptMode === 'winner' && (!project.winnerTemplate || project.winnerTemplate.trim().length < 10)
   );
 
+  const itemsArray = project.items || [];
+
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -60,9 +62,10 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   </div>
                   <input 
                     type="radio" 
+                    name="scriptMode"
                     checked={project.scriptMode === 'manual'} 
                     onChange={() => onUpdate({...project, scriptMode: 'manual'})}
-                    className="accent-primary"
+                    className="accent-primary cursor-pointer"
                   />
                 </div>
                 
@@ -108,16 +111,17 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   </div>
                   <input 
                     type="radio" 
+                    name="scriptMode"
                     checked={project.scriptMode === 'winner'} 
                     onChange={() => onUpdate({...project, scriptMode: 'winner'})}
-                    className="accent-primary"
+                    className="accent-primary cursor-pointer"
                   />
                 </div>
                 
                 <textarea 
                   className="w-full h-32 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600"
                   placeholder="Cole aqui sua estrutura vencedora de roteiro e a nossa IA irá criar baseado nela..."
-                  value={project.winnerTemplate}
+                  value={project.winnerTemplate || ''}
                   onChange={(e) => updateGlobal('winnerTemplate', e.target.value)}
                 />
               </section>
@@ -131,9 +135,10 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   </div>
                   <input 
                     type="radio" 
+                    name="scriptMode"
                     checked={project.scriptMode === 'auto'} 
                     onChange={() => onUpdate({...project, scriptMode: 'auto'})}
-                    className="accent-primary"
+                    className="accent-primary cursor-pointer"
                   />
                 </div>
                 <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA definirá o melhor tom e estrutura narrativa de forma inteligente para cada vídeo individualmente.</p>
@@ -227,7 +232,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
             </div>
 
             <div className="divide-y divide-border-dark/30 max-h-[500px] overflow-y-auto custom-scrollbar">
-              {project.items.map((item) => (
+              {itemsArray.map((item) => (
                 <div key={item.id} className="grid grid-cols-[1fr_120px_160px] p-5 items-center hover:bg-white/5 transition-colors group">
                   <p className="text-sm font-bold text-slate-200 truncate pr-4 max-w-full" title={item.title}>
                     {item.title}
@@ -262,7 +267,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                     {item.status === 'completed' && (
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText(item.script);
+                          navigator.clipboard.writeText(item.script || '');
                         }}
                         className="size-9 bg-white/5 hover:bg-accent-green hover:text-black rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
                       >

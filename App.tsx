@@ -33,7 +33,9 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     );
   }
 
-  const isReadyForBatch = project.items.length > 0 && project.niche && project.baseTheme;
+  // Proteção contra itens indefinidos para evitar crash
+  const itemsCount = project.items?.length || 0;
+  const isReadyForBatch = itemsCount > 0 && project.niche && project.baseTheme;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -43,7 +45,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
             <h2 className="text-xl md:text-2xl font-bold font-display tracking-tight text-white truncate max-w-[300px] md:max-w-[500px]">
               Projeto: {project.name || 'Sem Nome'}
             </h2>
-            <p className="text-slate-500 text-xs md:text-sm">Fábrica de Roteiros em Lote ({project.items.length} itens)</p>
+            <p className="text-slate-500 text-xs md:text-sm">Fábrica de Roteiros em Lote ({itemsCount} itens)</p>
           </div>
         </div>
         <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar whitespace-nowrap">
@@ -114,8 +116,27 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return INITIAL_PROJECTS;
+      
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return INITIAL_PROJECTS;
+
+      // Migração e Sanitização de dados legados
+      return parsed.map(p => ({
+        ...p,
+        items: p.items || [],
+        thumbnails: p.thumbnails || [],
+        scriptMode: p.scriptMode || 'manual',
+        globalTone: p.globalTone || 'Misterioso e Sombrio',
+        globalRetention: p.globalRetention || 'AIDA',
+        globalDuration: p.globalDuration || 12
+      }));
+    } catch (e) {
+      console.error("Erro ao carregar projetos do localStorage:", e);
+      return INITIAL_PROJECTS;
+    }
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
