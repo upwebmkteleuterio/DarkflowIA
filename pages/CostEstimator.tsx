@@ -2,111 +2,220 @@
 import React, { useState } from 'react';
 
 const CostEstimator: React.FC = () => {
-  const [videoCount, setVideoCount] = useState(10);
+  // Quantidades individuais
+  const [scriptCount, setScriptCount] = useState(10);
+  const [imageCount, setImageCount] = useState(20);
+  const [seoCount, setSeoCount] = useState(10);
   
-  // Preços oficiais médios (em USD) convertidos para estimativa por unidade
-  // Gemini 1.5 Pro: ~$1.25 / 1M input tokens | ~$5.00 / 1M output tokens
-  // Gemini 1.5 Flash: ~$0.10 / 1M tokens
-  // Imagen / Flash Image: ~$0.02 - $0.03 por imagem
+  /**
+   * CUSTOS BASEADOS NA TABELA GOOGLE VERTEX AI (MARÇO/2025)
+   * 
+   * 1. Roteiro (Gemini 3 Pro): 
+   *    Base: Roteiro de 30 min ~ 5.000 palavras (~6.650 tokens).
+   *    Preço: $5.00 por 1 milhão de tokens de saída.
+   *    Cálculo: (6650 / 1.000.000) * 5.00 = ~$0.033. 
+   *    Margem de segurança para input/contexto: $0.045 por roteiro.
+   * 
+   * 2. Imagens (Gemini 2.5 Flash Image):
+   *    Preço Fixo: $0.025 por imagem gerada.
+   * 
+   * 3. SEO (Gemini 3 Flash):
+   *    Preço: Quase nulo. Estimativa de $0.0005 por geração de lote.
+   */
   
-  const COST_PER_SCRIPT = 0.0035; // Média de um roteiro de 10-12 min (Gemini Pro)
-  const COST_PER_SEO = 0.0001;    // Média de metadados (Gemini Flash)
-  const COST_PER_IMAGE = 0.025;   // Média por geração de thumbnail (Flash Image)
-  
-  const totalScriptCost = videoCount * COST_PER_SCRIPT;
-  const totalSEOCost = videoCount * COST_PER_SEO;
-  const totalImageCost = videoCount * COST_PER_IMAGE * 2; // Simula 2 imagens por vídeo
-  const totalProjectCost = totalScriptCost + totalSEOCost + totalImageCost;
+  const PRICE_PER_SCRIPT = 0.045; // Roteiro de 30 min
+  const PRICE_PER_IMAGE = 0.025;  // Por imagem
+  const PRICE_PER_SEO = 0.0005;   // Por lote SEO
+
+  const totalScriptCost = scriptCount * PRICE_PER_SCRIPT;
+  const totalImageCost = imageCount * PRICE_PER_IMAGE;
+  const totalSEOCost = seoCount * PRICE_PER_SEO;
+  const grandTotal = totalScriptCost + totalImageCost + totalSEOCost;
 
   return (
-    <div className="max-w-[1000px] mx-auto px-6 py-12 animate-in fade-in duration-700">
-      <div className="mb-10 text-center">
+    <div className="max-w-[1100px] mx-auto px-6 py-12 animate-in fade-in duration-700">
+      <div className="mb-12 text-center">
         <h2 className="text-4xl font-black text-white font-display tracking-tight uppercase">
           Calculadora de <span className="text-primary italic">Custos API</span>
         </h2>
-        <p className="text-slate-500 mt-2 font-medium">Estime seus gastos mensais de infraestrutura IA para precificar seus planos.</p>
+        <p className="text-slate-500 mt-2 font-medium">Estime seus gastos mensais de IA para precificar seus planos de assinatura.</p>
       </div>
 
-      <div className="bg-surface-dark border border-border-dark p-8 rounded-[40px] shadow-2xl mb-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex-1 space-y-4">
-             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Simular Produção Mensal (Vídeos)</label>
-             <div className="flex items-center gap-6">
-                <input 
-                  type="range" min="10" max="1000" step="10"
-                  value={videoCount}
-                  onChange={(e) => setVideoCount(parseInt(e.target.value))}
-                  className="flex-1 h-2 bg-background-dark rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <span className="bg-primary/20 text-primary text-xl font-black px-4 py-2 rounded-2xl border border-primary/20">{videoCount}</span>
-             </div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        {/* Painel de Controles */}
+        <div className="lg:col-span-2 space-y-8 bg-surface-dark border border-border-dark p-8 rounded-[40px] shadow-2xl">
           
-          <div className="bg-background-dark/50 border border-border-dark rounded-3xl p-6 min-w-[280px] text-center">
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Custo Total Estimado</p>
-             <p className="text-4xl font-black text-accent-green leading-none mb-1">${totalProjectCost.toFixed(2)}</p>
-             <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest italic">Valores em Dólar (USD)</p>
+          {/* Seção Roteiro */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-lg">description</span>
+                  Produção de Roteiros
+                </h4>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Base: Roteiros de 30 min (IA Pro)</p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-white">{scriptCount}</span>
+                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Unidades</p>
+              </div>
+            </div>
+            <input 
+              type="range" min="0" max="500" step="5"
+              value={scriptCount}
+              onChange={(e) => setScriptCount(parseInt(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest">
+              <span>0</span>
+              <div className="flex items-center gap-2 bg-background-dark px-3 py-1 rounded-full border border-border-dark">
+                <span className="text-primary">Custo desta seção:</span>
+                <span className="text-white">${totalScriptCost.toFixed(2)}</span>
+              </div>
+              <span>500</span>
+            </div>
           </div>
+
+          <div className="h-px bg-border-dark/50"></div>
+
+          {/* Seção Imagens */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
+                  <span className="material-symbols-outlined text-accent-green text-lg">image</span>
+                  Geração de Imagens
+                </h4>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Thumbnail / Backgrounds (IA Flash)</p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-white">{imageCount}</span>
+                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Gerações</p>
+              </div>
+            </div>
+            <input 
+              type="range" min="0" max="2000" step="10"
+              value={imageCount}
+              onChange={(e) => setImageCount(parseInt(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest">
+              <span>0</span>
+              <div className="flex items-center gap-2 bg-background-dark px-3 py-1 rounded-full border border-border-dark">
+                <span className="text-accent-green">Custo desta seção:</span>
+                <span className="text-white">${totalImageCost.toFixed(2)}</span>
+              </div>
+              <span>2000</span>
+            </div>
+          </div>
+
+          <div className="h-px bg-border-dark/50"></div>
+
+          {/* Seção SEO */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-400 text-lg">trending_up</span>
+                  Otimização de SEO
+                </h4>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Tags, Metadados e Capítulos (IA Flash)</p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-white">{seoCount}</span>
+                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Gerações</p>
+              </div>
+            </div>
+            <input 
+              type="range" min="0" max="500" step="5"
+              value={seoCount}
+              onChange={(e) => setSeoCount(parseInt(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest">
+              <span>0</span>
+              <div className="flex items-center gap-2 bg-background-dark px-3 py-1 rounded-full border border-border-dark">
+                <span className="text-blue-400">Custo desta seção:</span>
+                <span className="text-white">${totalSEOCost.toFixed(2)}</span>
+              </div>
+              <span>500</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Card de Resultado Final */}
+        <div className="space-y-6">
+           <div className="bg-card-dark border-2 border-primary rounded-[40px] p-8 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between">
+              <div className="absolute -top-10 -right-10 size-40 bg-primary/10 rounded-full blur-3xl"></div>
+              
+              <div>
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Resumo da Operação</h3>
+                <div className="space-y-4 mb-8">
+                   <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Roteiros (30m)</span>
+                      <span className="text-white font-bold">${totalScriptCost.toFixed(2)}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Imagens</span>
+                      <span className="text-white font-bold">${totalImageCost.toFixed(2)}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">SEO & Tags</span>
+                      <span className="text-white font-bold">${totalSEOCost.toFixed(2)}</span>
+                   </div>
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-border-dark/50">
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Custo Total de API</p>
+                <p className="text-6xl font-black text-white leading-none">${grandTotal.toFixed(2)}</p>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-4 italic">Valores calculados em Dólar (USD)</p>
+                
+                <div className="mt-8 bg-primary text-black font-black text-[10px] uppercase p-4 rounded-2xl text-center shadow-lg">
+                  Sugestão de Plano: R$ 149 /mês
+                </div>
+              </div>
+           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-surface-dark border border-border-dark p-6 rounded-3xl flex flex-col items-center text-center">
-          <div className="size-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-2xl">description</span>
-          </div>
-          <h4 className="text-xs font-black text-white uppercase tracking-widest mb-1">Roteiros (Scripts)</h4>
-          <p className="text-2xl font-black text-white">${totalScriptCost.toFixed(4)}</p>
-          <p className="text-[9px] text-slate-500 mt-2 uppercase font-bold tracking-widest">
-            Média: $0.35 a cada 100 vídeos
-          </p>
-        </div>
-
-        <div className="bg-surface-dark border border-border-dark p-6 rounded-3xl flex flex-col items-center text-center">
-          <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-2xl">image</span>
-          </div>
-          <h4 className="text-xs font-black text-white uppercase tracking-widest mb-1">Thumbnails</h4>
-          <p className="text-2xl font-black text-white">${totalImageCost.toFixed(4)}</p>
-          <p className="text-[9px] text-slate-500 mt-2 uppercase font-bold tracking-widest">
-            Média: $0.025 por imagem
-          </p>
-        </div>
-
-        <div className="bg-surface-dark border border-border-dark p-6 rounded-3xl flex flex-col items-center text-center">
-          <div className="size-12 bg-accent-green/10 text-accent-green rounded-2xl flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-2xl">trending_up</span>
-          </div>
-          <h4 className="text-xs font-black text-white uppercase tracking-widest mb-1">SEO & Tags</h4>
-          <p className="text-2xl font-black text-white">${totalSEOCost.toFixed(4)}</p>
-          <p className="text-[9px] text-slate-500 mt-2 uppercase font-bold tracking-widest">
-            Média: $0.10 a cada 1000 vídeos
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-12 bg-background-dark/30 border border-border-dark/50 rounded-[32px] p-8">
-         <h4 className="text-sm font-black text-white uppercase tracking-tight mb-6 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">info</span>
-            Notas sobre os custos de API
-         </h4>
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-3">
-               <p className="text-xs text-slate-400 leading-relaxed">
-                  <strong className="text-white">Roteiros:</strong> Utilizamos o Gemini 3 Pro para garantir scripts de alta qualidade. O custo é calculado por tokens (aproximadamente 3 tokens por palavra). 1000 caracteres custam menos de <span className="text-primary">$0,001</span>.
-               </p>
-               <p className="text-xs text-slate-400 leading-relaxed">
-                  <strong className="text-white">Imagens:</strong> O modelo Flash Image é extremamente eficiente. O custo fixo é por imagem gerada, independente da complexidade do prompt.
-               </p>
-            </div>
-            <div className="space-y-3">
-               <p className="text-xs text-slate-400 leading-relaxed">
-                  <strong className="text-white">Escalabilidade:</strong> Com esses custos, uma assinatura de R$ 99 (aprox. $18) que permite 200 créditos (20 vídeos) custa para você apenas <span className="text-accent-green font-bold">~$1.20</span> em API. Margem de lucro superior a 90%.
-               </p>
-               <p className="text-xs text-slate-400 italic">
-                  *Valores estimados com base na tabela da Google Vertex AI de Março/2025.
-               </p>
-            </div>
+      {/* Tabela de Referência de Preços (Grounding) */}
+      <div className="bg-surface-dark border border-border-dark rounded-[32px] overflow-hidden shadow-xl">
+         <div className="bg-background-dark/50 p-6 border-b border-border-dark">
+            <h4 className="text-xs font-black text-white uppercase tracking-widest">Tabela de Referência da IA (Oficial)</h4>
+         </div>
+         <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+               <thead>
+                  <tr className="bg-background-dark/30 text-slate-500 font-black uppercase tracking-tighter">
+                     <th className="px-6 py-4">Serviço</th>
+                     <th className="px-6 py-4">Modelo Recomendado</th>
+                     <th className="px-6 py-4">Consumo Médio</th>
+                     <th className="px-6 py-4">Custo Unitário</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-border-dark/50 text-slate-300">
+                  <tr>
+                     <td className="px-6 py-4 font-bold text-white">Roteiro (Longa Duração)</td>
+                     <td className="px-6 py-4">Gemini 3 Pro</td>
+                     <td className="px-6 py-4">~7k Tokens (30 Minutos)</td>
+                     <td className="px-6 py-4 text-accent-green">$0,045</td>
+                  </tr>
+                  <tr>
+                     <td className="px-6 py-4 font-bold text-white">Imagens HD</td>
+                     <td className="px-6 py-4">Gemini 2.5 Flash Image</td>
+                     <td className="px-6 py-4">1 Geração por Capa</td>
+                     <td className="px-6 py-4 text-accent-green">$0,025</td>
+                  </tr>
+                  <tr>
+                     <td className="px-6 py-4 font-bold text-white">Metadados SEO</td>
+                     <td className="px-6 py-4">Gemini 3 Flash</td>
+                     <td className="px-6 py-4">~1k Tokens (Tags/Desc)</td>
+                     <td className="px-6 py-4 text-accent-green">$0,0005</td>
+                  </tr>
+               </tbody>
+            </table>
          </div>
       </div>
     </div>

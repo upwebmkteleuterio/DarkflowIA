@@ -143,8 +143,8 @@ export const generateScenePrompt = async (title: string, script: string, style: 
   });
 };
 
-// Gerador de áudio (TTS) usando gemini-2.5-flash-preview-tts
-export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
+// Generate speech using gemini-2.5-flash-preview-tts model
+export const generateSpeech = async (text: string, voiceName: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
     const response = await ai.models.generateContent({
@@ -154,13 +154,19 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voiceName as any },
+            prebuiltVoiceConfig: { voiceName },
           },
         },
       },
     });
+    
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("Falha ao gerar áudio");
-    return base64Audio;
+    if (!base64Audio) {
+      throw new Error("Falha ao gerar áudio");
+    }
+    
+    // Return a data URI with the base64 PCM data. 
+    // Note: PCM data requires custom decoding for playback as shown in guidelines.
+    return `data:audio/pcm;base64,${base64Audio}`;
   });
 };
