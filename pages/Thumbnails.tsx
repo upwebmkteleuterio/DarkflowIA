@@ -14,7 +14,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState(project.items[0]?.id || '');
   
-  // Configurações Globais (Servem de fallback e controle de estilo/variante)
+  // Configurações (Servem de fallback e controle de estilo/variante)
   const [batchConfig, setBatchConfig] = useState({
     mode: 'auto' as 'auto' | 'manual',
     prompt: '',
@@ -24,7 +24,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
 
   const {
     isProcessing,
-    handleStartBatch,
     handleGenerateSingle,
     handleRetry,
     stats
@@ -70,10 +69,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
     document.body.removeChild(link);
   };
 
-  const isStartDisabled = isProcessing || stats.pending === 0 || (
-    batchConfig.mode === 'manual' && batchConfig.prompt.trim().length < 5
-  );
-
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -81,10 +76,10 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
         {/* COLUNA ESQUERDA: CONFIGURAÇÕES E SELETOR (1/3) */}
         <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8">
           
-          {/* SELETOR DE TÍTULOS (PADRÃO SEO) */}
+          {/* SELETOR DE TÍTULOS */}
           <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-border-dark bg-card-dark/30 flex justify-between items-center">
-               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Lista de Produção</h4>
+               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Lista de Vídeos</h4>
                <span className="text-[9px] font-bold text-slate-600 bg-background-dark px-2 py-0.5 rounded-full">{itemsArray.length} VÍDEOS</span>
             </div>
             <div className="max-h-[340px] overflow-y-auto custom-scrollbar p-3 space-y-2">
@@ -115,8 +110,8 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
           {/* CONFIGURAÇÕES DE ARTE */}
           <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-border-dark bg-card-dark/50">
-              <h3 className="text-xl font-black text-white font-display tracking-tight uppercase">Configuração</h3>
-              <p className="text-slate-500 text-xs">Defina o comportamento da IA.</p>
+              <h3 className="text-xl font-black text-white font-display tracking-tight uppercase">Configuração Visual</h3>
+              <p className="text-slate-500 text-xs">Defina o comportamento da IA para as imagens.</p>
             </div>
 
             <div className="p-6 space-y-8">
@@ -135,7 +130,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                     </div>
                     <input type="radio" checked={batchConfig.mode === 'auto'} readOnly className="accent-primary" />
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA lerá o roteiro deste vídeo específico para criar uma arte contextual.</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA analisará o título/roteiro para criar a cena perfeita.</p>
                 </div>
 
                 <div 
@@ -145,14 +140,14 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-sm">edit_note</span>
-                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Prompt Customizado</h4>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Manual</h4>
                     </div>
                     <input type="radio" checked={batchConfig.mode === 'manual'} readOnly className="accent-primary" />
                   </div>
                   <textarea 
                     disabled={batchConfig.mode !== 'manual'}
                     className="w-full h-24 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600 disabled:opacity-50"
-                    placeholder="Descreva a cena específica para este vídeo..."
+                    placeholder="Descreva a cena específica..."
                     value={batchConfig.prompt}
                     onChange={(e) => handlePromptChange(e.target.value)}
                   />
@@ -161,7 +156,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
 
               {/* ESTILO ARTÍSTICO */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo Visual (Lote)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo Visual</label>
                 <select 
                   className="w-full bg-surface-dark border border-border-dark rounded-xl py-3 px-3 text-xs text-white outline-none focus:ring-1 focus:ring-primary"
                   value={batchConfig.style}
@@ -178,8 +173,8 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
               {/* VARIAÇÕES */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Artes por Vídeo</label>
-                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md">{batchConfig.variations} {batchConfig.variations === 1 ? 'Arte' : 'Artes'}</span>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Quantidade</label>
+                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md">{batchConfig.variations} {batchConfig.variations === 1 ? 'Imagem' : 'Imagens'}</span>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {[1, 2, 3, 4].map(n => (
@@ -198,60 +193,35 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
         </div>
 
         {/* COLUNA DIREITA: PRODUÇÃO E GALERIA (2/3) */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-8 h-full flex flex-col">
           
-          {/* Dashboard de Status de Lote */}
-          <div className="bg-surface-dark border border-border-dark p-6 rounded-[32px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className={`size-12 rounded-2xl flex items-center justify-center ${isProcessing ? 'bg-primary animate-pulse' : 'bg-white/5 text-slate-500'}`}>
-                <span className="material-symbols-outlined">{isProcessing ? 'palette' : 'image'}</span>
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white leading-tight">
-                  {isProcessing ? 'Processando Lote...' : 'Fila de Produção'}
-                </h3>
-                <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-                  {stats.completed}/{stats.total} Vídeos Finalizados
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
+          {/* Botão de Avançar Global (Fica fixo quando houver progresso) */}
+          {stats.completed > 0 && (
+            <div className="flex justify-end">
               <button 
-                onClick={() => handleStartBatch(batchConfig)}
-                disabled={isStartDisabled}
-                className="flex-1 md:flex-none px-8 py-3.5 bg-primary hover:bg-primary-hover text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={onNext}
+                className="px-8 py-3.5 bg-white text-black font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-200 transition-all active:scale-95 flex items-center gap-2 shadow-xl"
               >
-                <span className="material-symbols-outlined text-sm">rocket_launch</span>
-                Iniciar Lote
+                Avançar para SEO
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
-              
-              {stats.completed > 0 && (
-                <button 
-                  onClick={onNext}
-                  className="flex-1 md:flex-none px-8 py-3.5 bg-white text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl hover:bg-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  Avançar
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-              )}
             </div>
-          </div>
+          )}
 
           {/* Área de Visualização Individual */}
-          <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden flex flex-col h-full min-h-[600px]">
+          <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden flex flex-col flex-1 min-h-[700px]">
             {/* Cabeçalho de Contexto */}
             <div className="p-8 border-b border-border-dark/50 bg-card-dark/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Vídeo em Foco</span>
+                  <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Vídeo Selecionado</span>
                   <div className="h-px flex-1 bg-border-dark/50"></div>
                 </div>
-                <h3 className="text-2xl font-black text-white leading-tight mb-2">{selectedItem?.title || 'Selecione um título'}</h3>
+                <h3 className="text-2xl font-black text-white leading-tight mb-2">{selectedItem?.title || 'Selecione um vídeo'}</h3>
                 <div className="flex items-center gap-4">
                    <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-slate-500 text-sm">description</span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{selectedItem?.script?.split(' ').length || 0} palavras no roteiro</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{selectedItem?.script?.split(' ').length || 0} palavras</span>
                    </div>
                    <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-slate-500 text-sm">tag</span>
@@ -264,37 +234,36 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                  <button 
                    onClick={() => handleGenerateSingle(selectedItemId, batchConfig)}
                    disabled={selectedItem?.thumbStatus === 'generating' || isProcessing}
-                   className="w-full md:w-auto px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+                   className="w-full md:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-30 active:scale-95"
                  >
                    <span className="material-symbols-outlined text-sm">{selectedItem?.thumbStatus === 'generating' ? 'sync' : 'brush'}</span>
-                   {selectedItem?.thumbStatus === 'generating' ? 'Gerando...' : 'Gerar Apenas Este'}
+                   {selectedItem?.thumbStatus === 'generating' ? 'Criando Artes...' : 'Gerar novas Imagens'}
                  </button>
                  {selectedItem?.thumbStatus === 'failed' && (
                     <button 
                       onClick={() => handleRetry(selectedItemId, batchConfig)}
-                      className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center justify-center gap-1"
+                      className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center justify-center gap-1 p-2"
                     >
                       <span className="material-symbols-outlined text-xs">refresh</span>
-                      Tentar Novamente
+                      Erro na geração. Tentar Novamente?
                     </button>
                  )}
               </div>
             </div>
 
             {/* Galeria de Thumbnails */}
-            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                {selectedItem?.thumbStatus === 'generating' && (
-                  <div className="col-span-full py-12 flex flex-col items-center justify-center bg-background-dark/30 rounded-3xl border border-primary/20 animate-in fade-in duration-500">
-                    <div className="relative size-16 mb-6">
-                       <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
-                       <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                    <p className="text-white font-black uppercase tracking-widest text-xs">Criando Artes de Alta Qualidade...</p>
-                    <p className="text-slate-500 text-[10px] mt-1 italic">Isto pode levar até 15 segundos.</p>
+            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar bg-background-dark/10">
+              {selectedItem?.thumbStatus === 'generating' && (
+                <div className="mb-8 py-10 flex flex-col items-center justify-center bg-primary/5 rounded-3xl border border-primary/20 animate-in fade-in duration-500">
+                  <div className="relative size-12 mb-4">
+                     <div className="absolute inset-0 border-3 border-primary/10 rounded-full"></div>
+                     <div className="absolute inset-0 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                )}
+                  <p className="text-white font-black uppercase tracking-widest text-[10px]">A IA está pintando sua cena...</p>
+                </div>
+              )}
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 {selectedItem?.thumbnails && selectedItem.thumbnails.length > 0 ? (
                   selectedItem.thumbnails.map((url, idx) => (
                     <div key={idx} className="group relative aspect-video bg-background-dark rounded-3xl overflow-hidden border border-border-dark shadow-2xl animate-in zoom-in-95 duration-500">
@@ -324,13 +293,13 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                       )}
                     </div>
                   ))
-                ) : !isProcessing && selectedItem?.thumbStatus !== 'generating' && (
+                ) : selectedItem?.thumbStatus !== 'generating' && (
                   <div className="col-span-full py-24 flex flex-col items-center justify-center text-slate-600 bg-background-dark/20 rounded-[40px] border-2 border-dashed border-border-dark/40">
                     <div className="size-20 bg-surface-dark rounded-full flex items-center justify-center mb-6">
                        <span className="material-symbols-outlined text-4xl opacity-20">image_search</span>
                     </div>
                     <h4 className="text-lg font-bold text-white mb-1 uppercase tracking-tight">Sem artes geradas</h4>
-                    <p className="text-xs text-slate-500 max-w-xs text-center">Configure a estratégia ao lado e clique em Iniciar Lote ou Gerar Apenas Este.</p>
+                    <p className="text-xs text-slate-500 max-w-xs text-center">Clique no botão "Gerar novas Imagens" para criar as artes para este vídeo.</p>
                   </div>
                 )}
               </div>

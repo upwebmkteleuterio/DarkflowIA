@@ -53,12 +53,27 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
             </div>
 
             <div className="p-6 space-y-8">
+              {/* DURAÇÃO (MOVIMENTADO PARA O TOPO) */}
+              <section className="space-y-4 p-4 rounded-2xl border border-primary bg-primary/5 shadow-inner">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-white uppercase tracking-widest ml-1">Tempo do Roteiro</label>
+                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md border border-primary/20">{project.globalDuration} min</span>
+                </div>
+                <input 
+                  type="range" min="3" max="30" 
+                  value={project.globalDuration} 
+                  onChange={(e) => onUpdate({...project, globalDuration: parseInt(e.target.value)})}
+                  className="w-full h-1.5 bg-background-dark rounded-lg appearance-none cursor-pointer accent-primary border border-border-dark" 
+                />
+                <p className="text-[9px] text-primary/70 font-bold text-center uppercase tracking-widest">~{project.globalDuration * 140} palavras para narração</p>
+              </section>
+
               {/* MODO MANUAL */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all ${project.scriptMode === 'manual' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30 opacity-60'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'manual' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">tune</span>
-                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Configuração Manual</h4>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'manual' ? 'text-white' : 'text-slate-500'}`}>Configuração Manual</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -103,11 +118,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
               </section>
 
               {/* MODO VENCEDOR */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all ${project.scriptMode === 'winner' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30 opacity-60'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'winner' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">workspace_premium</span>
-                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Roteiro Vencedor</h4>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'winner' ? 'text-white' : 'text-slate-500'}`}>Roteiro Vencedor</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -119,7 +134,8 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                 </div>
                 
                 <textarea 
-                  className="w-full h-32 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600"
+                  disabled={project.scriptMode !== 'winner'}
+                  className="w-full h-32 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600 disabled:opacity-50"
                   placeholder="Cole aqui sua estrutura vencedora de roteiro e a nossa IA irá criar baseado nela..."
                   value={project.winnerTemplate || ''}
                   onChange={(e) => updateGlobal('winnerTemplate', e.target.value)}
@@ -127,11 +143,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
               </section>
 
               {/* MODO AUTOMÁTICO */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all ${project.scriptMode === 'auto' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30 opacity-60'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'auto' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
-                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Automático</h4>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'auto' ? 'text-white' : 'text-slate-500'}`}>Automático</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -142,21 +158,6 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   />
                 </div>
                 <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA definirá o melhor tom e estrutura narrativa de forma inteligente para cada vídeo individualmente.</p>
-              </section>
-
-              {/* DURAÇÃO (Sempre ativo) */}
-              <section className="space-y-4 p-4 rounded-2xl border border-border-dark bg-background-dark/50">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tempo do Roteiro</label>
-                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md">{project.globalDuration} min</span>
-                </div>
-                <input 
-                  type="range" min="3" max="30" 
-                  value={project.globalDuration} 
-                  onChange={(e) => onUpdate({...project, globalDuration: parseInt(e.target.value)})}
-                  className="w-full h-1.5 bg-background-dark rounded-lg appearance-none cursor-pointer accent-primary border border-border-dark" 
-                />
-                <p className="text-[9px] text-slate-600 font-bold text-center uppercase tracking-widest">~{project.globalDuration * 140} palavras</p>
               </section>
             </div>
           </div>
@@ -225,7 +226,6 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
 
           {/* Lista de Itens */}
           <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
-            {/* AJUSTE FINAL DE COLUNAS: Título (1fr) | Status (200px) | Ações (100px) */}
             <div className="grid grid-cols-[1fr_200px_100px] p-4 border-b border-border-dark bg-card-dark/30 text-[10px] font-black text-slate-500 uppercase tracking-widest">
               <span className="ml-4">Título do Vídeo</span>
               <span className="text-center">Status</span>

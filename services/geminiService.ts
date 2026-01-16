@@ -83,11 +83,30 @@ export const generateTitles = async (niche: string, audience: string, trigger: s
 export const generateScript = async (title: string, niche: string, duration: number, mode: string, tone?: string, retention?: string, winnerTemplate?: string, baseTheme?: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
-    const prompt = `Escreva um roteiro de YouTube para "${title}". Nicho: ${niche}. Contexto: ${baseTheme}. Duração alvo: ${duration}min.`;
+    
+    // Prompt focado estritamente em narração para evitar comentários do modelo e descrições de cena
+    const prompt = `
+      Escreva um roteiro de YouTube para o título: "${title}". 
+      Nicho: ${niche}. 
+      Contexto/Tema: ${baseTheme}. 
+      Duração alvo: ${duration}min.
+      Modo: ${mode}.
+      ${mode === 'manual' ? `Tom: ${tone}. Estrutura: ${retention}.` : ''}
+      ${mode === 'winner' ? `Use este modelo como base de estrutura: ${winnerTemplate}.` : ''}
+
+      REGRAS OBRIGATÓRIAS:
+      1. Gere APENAS o texto que será narrado (Locução).
+      2. NÃO inclua descrições de cena, sugestões visuais, introduções explicativas ou conclusões do modelo (ex: "Aqui está seu roteiro").
+      3. O texto deve estar pronto para ser copiado e colado em um software de narração (TTS).
+      4. Divida o texto em parágrafos fluídos para uma leitura natural.
+    `;
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
-      config: { systemInstruction: "Você é um roteirista sênior de canais dark." }
+      config: { 
+        systemInstruction: "Você é um roteirista sênior especializado em narração para canais dark. Seu objetivo é entregar apenas o texto puro da locução, sem metadados ou instruções de cena." 
+      }
     });
     return response.text || "";
   });
