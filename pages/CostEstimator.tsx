@@ -10,11 +10,11 @@ const CostEstimator: React.FC = () => {
   /**
    * CUSTOS BASEADOS NA TABELA GOOGLE VERTEX AI (MARÇO/2025)
    * 
-   * 1. Roteiro (Gemini 3 Pro): 
+   * 1. Roteiro (Gemini 3 Flash): 
    *    Base: Roteiro de 30 min ~ 5.000 palavras (~6.650 tokens).
-   *    Preço: $5.00 por 1 milhão de tokens de saída.
-   *    Cálculo: (6650 / 1.000.000) * 5.00 = ~$0.033. 
-   *    Margem de segurança para input/contexto: $0.045 por roteiro.
+   *    Preço: $0.10 por 1 milhão de tokens de saída.
+   *    Cálculo: (6650 / 1.000.000) * 0.10 = ~$0.000665. 
+   *    Margem de segurança para input/contexto: $0.0007 por roteiro.
    * 
    * 2. Imagens (Gemini 2.5 Flash Image):
    *    Preço Fixo: $0.025 por imagem gerada.
@@ -23,7 +23,7 @@ const CostEstimator: React.FC = () => {
    *    Preço: Quase nulo. Estimativa de $0.0005 por geração de lote.
    */
   
-  const PRICE_PER_SCRIPT = 0.045; // Roteiro de 30 min
+  const PRICE_PER_SCRIPT = 0.0007; // Roteiro de 30 min (Gemini 3 Flash)
   const PRICE_PER_IMAGE = 0.025;  // Por imagem
   const PRICE_PER_SEO = 0.0005;   // Por lote SEO
 
@@ -53,7 +53,7 @@ const CostEstimator: React.FC = () => {
                   <span className="material-symbols-outlined text-primary text-lg">description</span>
                   Produção de Roteiros
                 </h4>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Base: Roteiros de 30 min (IA Pro)</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Base: Roteiros de 30 min (IA Flash)</p>
               </div>
               <div className="text-right">
                 <span className="text-2xl font-black text-white">{scriptCount}</span>
@@ -61,7 +61,7 @@ const CostEstimator: React.FC = () => {
               </div>
             </div>
             <input 
-              type="range" min="0" max="500" step="5"
+              type="range" min="0" max="1000" step="10"
               value={scriptCount}
               onChange={(e) => setScriptCount(parseInt(e.target.value))}
               className="w-full"
@@ -70,9 +70,9 @@ const CostEstimator: React.FC = () => {
               <span>0</span>
               <div className="flex items-center gap-2 bg-background-dark px-3 py-1 rounded-full border border-border-dark">
                 <span className="text-primary">Custo desta seção:</span>
-                <span className="text-white">${totalScriptCost.toFixed(2)}</span>
+                <span className="text-white">${totalScriptCost.toFixed(4)}</span>
               </div>
-              <span>500</span>
+              <span>1000</span>
             </div>
           </div>
 
@@ -136,7 +136,7 @@ const CostEstimator: React.FC = () => {
               <span>0</span>
               <div className="flex items-center gap-2 bg-background-dark px-3 py-1 rounded-full border border-border-dark">
                 <span className="text-blue-400">Custo desta seção:</span>
-                <span className="text-white">${totalSEOCost.toFixed(2)}</span>
+                <span className="text-white">${totalSEOCost.toFixed(4)}</span>
               </div>
               <span>500</span>
             </div>
@@ -154,7 +154,7 @@ const CostEstimator: React.FC = () => {
                 <div className="space-y-4 mb-8">
                    <div className="flex justify-between text-sm">
                       <span className="text-slate-400">Roteiros (30m)</span>
-                      <span className="text-white font-bold">${totalScriptCost.toFixed(2)}</span>
+                      <span className="text-white font-bold">${totalScriptCost.toFixed(4)}</span>
                    </div>
                    <div className="flex justify-between text-sm">
                       <span className="text-slate-400">Imagens</span>
@@ -162,7 +162,7 @@ const CostEstimator: React.FC = () => {
                    </div>
                    <div className="flex justify-between text-sm">
                       <span className="text-slate-400">SEO & Tags</span>
-                      <span className="text-white font-bold">${totalSEOCost.toFixed(2)}</span>
+                      <span className="text-white font-bold">${totalSEOCost.toFixed(4)}</span>
                    </div>
                 </div>
               </div>
@@ -173,7 +173,7 @@ const CostEstimator: React.FC = () => {
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-4 italic">Valores calculados em Dólar (USD)</p>
                 
                 <div className="mt-8 bg-primary text-black font-black text-[10px] uppercase p-4 rounded-2xl text-center shadow-lg">
-                  Sugestão de Plano: R$ 149 /mês
+                  Sugestão de Plano: R$ 14 - R$ 24 /mês
                 </div>
               </div>
            </div>
@@ -198,9 +198,9 @@ const CostEstimator: React.FC = () => {
                <tbody className="divide-y divide-border-dark/50 text-slate-300">
                   <tr>
                      <td className="px-6 py-4 font-bold text-white">Roteiro (Longa Duração)</td>
-                     <td className="px-6 py-4">Gemini 3 Pro</td>
+                     <td className="px-6 py-4">Gemini 3 Flash</td>
                      <td className="px-6 py-4">~7k Tokens (30 Minutos)</td>
-                     <td className="px-6 py-4 text-accent-green">$0,045</td>
+                     <td className="px-6 py-4 text-accent-green">$0,0007</td>
                   </tr>
                   <tr>
                      <td className="px-6 py-4 font-bold text-white">Imagens HD</td>

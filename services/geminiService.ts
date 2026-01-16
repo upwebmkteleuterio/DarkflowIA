@@ -85,7 +85,7 @@ export const generateScript = async (title: string, niche: string, duration: num
     const ai = getAI();
     const prompt = `Escreva um roteiro de YouTube para "${title}". Nicho: ${niche}. Contexto: ${baseTheme}. Duração alvo: ${duration}min.`;
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { systemInstruction: "Você é um roteirista sênior de canais dark." }
     });
