@@ -15,10 +15,16 @@ export interface ScriptItem {
   script: string;
   status: 'pending' | 'generating' | 'completed' | 'failed';
   thumbStatus?: 'pending' | 'generating' | 'completed' | 'failed';
+  thumbPrompt?: string;
+  thumbMode?: 'auto' | 'manual';
+  voiceStatus?: 'pending' | 'generating' | 'completed' | 'failed';
+  voiceName?: string;
+  audioUrl?: string;
   error?: string;
   thumbnails: string[];
   description?: string;
   chapters?: string;
+  tags?: string;
 }
 
 export interface Project {
@@ -48,16 +54,11 @@ export interface TitleIdea {
   ctrScore: 'High' | 'Trending' | 'Optimized' | 'Panic';
 }
 
-export interface TrendSource {
-  title: string;
-  uri: string;
-}
-
 export interface Trend {
   id: string;
   topic: string;
   reason: string;
   viralScore: number;
   marketGap: string;
-  sources: TrendSource[];
+  sources: { title: string; uri: string }[];
 }

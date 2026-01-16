@@ -11,6 +11,7 @@ import Export from './pages/Export';
 import TrendHunter from './pages/TrendHunter';
 import TitleGenerator from './pages/TitleGenerator';
 import Pricing from './pages/Pricing';
+import CostEstimator from './pages/CostEstimator'; // Nova importação
 import { Project, ProjectStep } from './types';
 
 const STORAGE_KEY = 'darkflow_ai_projects';
@@ -20,7 +21,6 @@ const INITIAL_PROJECTS: Project[] = [];
 const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => void }> = ({ projects, onUpdate }) => {
   const { id } = useParams();
   const [step, setStep] = useState<ProjectStep>(ProjectStep.IDEATION);
-  
   const project = projects.find(p => p.id === id);
 
   if (!project) {
@@ -33,7 +33,6 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     );
   }
 
-  // Proteção contra itens indefinidos para evitar crash
   const itemsCount = project.items?.length || 0;
   const isReadyForBatch = itemsCount > 0 && project.niche && project.baseTheme;
 
@@ -49,66 +48,34 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
           </div>
         </div>
         <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar whitespace-nowrap">
-          <button 
-            onClick={() => setStep(ProjectStep.IDEATION)}
-            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.IDEATION ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
-          >
+          <button onClick={() => setStep(ProjectStep.IDEATION)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.IDEATION ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>
             <span className="material-symbols-outlined text-sm">edit_note</span>
             <p className="text-xs md:text-sm font-bold">1. Ideação</p>
           </button>
-          
-          <button 
-            disabled={!isReadyForBatch}
-            onClick={() => setStep(ProjectStep.SCRIPT)}
-            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
-              step === ProjectStep.SCRIPT ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
-          >
+          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.SCRIPT)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.SCRIPT ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
             <span className="material-symbols-outlined text-sm">queue</span>
             <p className="text-xs md:text-sm font-bold">2. Roteiros</p>
           </button>
-          
-          <button 
-            disabled={!isReadyForBatch}
-            onClick={() => setStep(ProjectStep.THUMBNAIL)}
-            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
-              step === ProjectStep.THUMBNAIL ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
-          >
+          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.THUMBNAIL)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.THUMBNAIL ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
             <span className="material-symbols-outlined text-sm">image</span>
             <p className="text-xs md:text-sm font-bold">3. Thumbnail</p>
           </button>
-
-          <button 
-            disabled={!isReadyForBatch}
-            onClick={() => setStep(ProjectStep.METADATA)}
-            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
-              step === ProjectStep.METADATA ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
-          >
+          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.METADATA)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.METADATA ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
             <span className="material-symbols-outlined text-sm">insights</span>
             <p className="text-xs md:text-sm font-bold">4. SEO</p>
           </button>
-
-          <button 
-            disabled={!isReadyForBatch}
-            onClick={() => setStep(ProjectStep.EXPORT)}
-            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${
-              step === ProjectStep.EXPORT ? 'border-primary text-primary' : 'border-transparent text-slate-400'
-            } ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}
-          >
+          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.EXPORT)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.EXPORT ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
             <span className="material-symbols-outlined text-sm">check_circle</span>
             <p className="text-xs md:text-sm font-bold">5. Finalizar</p>
           </button>
         </div>
       </header>
-
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-background-dark/30">
         {step === ProjectStep.IDEATION && <Ideation project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.SCRIPT)} />}
         {isReadyForBatch && step === ProjectStep.SCRIPT && <Script project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.THUMBNAIL)} />}
         {isReadyForBatch && step === ProjectStep.THUMBNAIL && <Thumbnails project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.METADATA)} />}
         {isReadyForBatch && step === ProjectStep.METADATA && <Metadata project={project} onUpdate={onUpdate} />}
-        {isReadyForBatch && step === ProjectStep.EXPORT && <Export project={project} />}
+        {isReadyForBatch && step === ProjectStep.EXPORT && <Export project={project} onUpdate={onUpdate} />}
       </div>
     </div>
   );
@@ -119,22 +86,9 @@ const AppContent: React.FC = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return INITIAL_PROJECTS;
-      
       const parsed = JSON.parse(saved);
-      if (!Array.isArray(parsed)) return INITIAL_PROJECTS;
-
-      // Migração e Sanitização de dados legados
-      return parsed.map(p => ({
-        ...p,
-        items: p.items || [],
-        thumbnails: p.thumbnails || [],
-        scriptMode: p.scriptMode || 'manual',
-        globalTone: p.globalTone || 'Misterioso e Sombrio',
-        globalRetention: p.globalRetention || 'AIDA',
-        globalDuration: p.globalDuration || 12
-      }));
+      return Array.isArray(parsed) ? parsed : INITIAL_PROJECTS;
     } catch (e) {
-      console.error("Erro ao carregar projetos do localStorage:", e);
       return INITIAL_PROJECTS;
     }
   });
@@ -166,7 +120,6 @@ const AppContent: React.FC = () => {
       scriptMode: 'manual',
       winnerTemplate: ''
     };
-    
     setProjects(prev => [newProject, ...prev]);
     navigate(`/projects/${newId}`);
   }, [navigate]);
@@ -182,6 +135,7 @@ const AppContent: React.FC = () => {
           <Route path="/trends" element={<TrendHunter />} />
           <Route path="/title-generator" element={<TitleGenerator />} />
           <Route path="/plans" element={<Pricing />} />
+          <Route path="/cost-estimator" element={<CostEstimator />} /> {/* Nova Rota */}
           <Route path="/settings" element={<div className="p-10 text-slate-500">Configurações em breve.</div>} />
         </Routes>
       </main>

@@ -19,59 +19,67 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
     onUpdate({ ...projectRef.current, items: updatedItems });
   }, [onUpdate]);
 
-  const processNextPending = async (config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
+  const processSingleItem = async (itemId: string, batchConfig: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
     const currentItems = projectRef.current.items || [];
-    const pendingItem = currentItems.find(item => item.thumbStatus === 'pending');
+    const item = currentItems.find(i => i.id === itemId);
     
-    if (!pendingItem) {
-      console.log("[THUMB-QUEUE] Todas as artes concluídas.");
-      setIsProcessing(false);
-      return;
-    }
+    if (!item) return;
 
-    updateItemStatus(pendingItem.id, { thumbStatus: 'generating' });
+    updateItemStatus(itemId, { thumbStatus: 'generating' });
 
     try {
-      let finalPrompt = config.prompt;
+      const itemMode = item.thumbMode || batchConfig.mode;
+      const itemPrompt = item.thumbPrompt || batchConfig.prompt;
+      
+      let finalPrompt = itemPrompt;
 
-      // Se for automático, a IA gera o prompt baseada no roteiro específico
-      if (config.mode === 'auto') {
+      if (itemMode === 'auto') {
         const generated = await generateScenePrompt(
-          pendingItem.title, 
-          pendingItem.script || "", 
-          config.style
+          item.title, 
+          item.script || "", 
+          batchConfig.style
         );
-        finalPrompt = generated || pendingItem.title;
+        finalPrompt = generated || item.title;
       }
 
-      // Gerar variações solicitadas
       const newImages: string[] = [];
-      for (let i = 0; i < config.variations; i++) {
-        const imgUrl = await generateThumbnail(finalPrompt, config.style, pendingItem.title);
+      for (let i = 0; i < batchConfig.variations; i++) {
+        const imgUrl = await generateThumbnail(finalPrompt, batchConfig.style, item.title);
         if (imgUrl) newImages.push(imgUrl);
       }
 
       if (newImages.length > 0) {
-        updateItemStatus(pendingItem.id, { 
+        updateItemStatus(itemId, { 
           thumbStatus: 'completed', 
-          thumbnails: [...newImages, ...(pendingItem.thumbnails || [])] 
+          thumbnails: [...newImages, ...(item.thumbnails || [])] 
         });
       } else {
         throw new Error("IA não retornou imagens.");
       }
     } catch (error) {
-      console.error("[THUMB-QUEUE] Erro no item:", pendingItem.title, error);
-      updateItemStatus(pendingItem.id, { thumbStatus: 'failed' });
-    } finally {
-      // Pequeno delay entre gerações para evitar rate limit
-      setTimeout(() => processNextPending(config), 1500);
+      console.error("[THUMB-SINGLE] Erro no item:", item.title, error);
+      updateItemStatus(itemId, { thumbStatus: 'failed' });
     }
+  };
+
+  const processNextPending = async (batchConfig: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
+    const currentItems = projectRef.current.items || [];
+    const pendingItem = currentItems.find(item => item.thumbStatus === 'pending');
+    
+    if (!pendingItem) {
+      setIsProcessing(false);
+      return;
+    }
+
+    await processSingleItem(pendingItem.id, batchConfig);
+    
+    // Continua para o próximo após um breve delay
+    setTimeout(() => processNextPending(batchConfig), 1500);
   };
 
   const handleStartBatch = (config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
     if (isProcessing) return;
     
-    // Marcar itens para fila (apenas os que não tem thumb ou falharam)
     const updatedItems = projectRef.current.items.map(item => ({
       ...item,
       thumbStatus: (item.thumbnails.length === 0 || item.thumbStatus === 'failed') ? 'pending' : item.thumbStatus
@@ -80,6 +88,10 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
     onUpdate({ ...projectRef.current, items: updatedItems });
     setIsProcessing(true);
     setTimeout(() => processNextPending(config), 500);
+  };
+
+  const handleGenerateSingle = async (itemId: string, config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
+    await processSingleItem(itemId, config);
   };
 
   const handleRetry = (itemId: string, config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
@@ -94,6 +106,7 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
   return {
     isProcessing,
     handleStartBatch,
+    handleGenerateSingle,
     handleRetry,
     stats: {
       total: items.length,

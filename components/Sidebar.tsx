@@ -18,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
     { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator' },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends' },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans' },
+    { name: 'Calculadora de Custos', icon: 'calculate', path: '/cost-estimator' }, // Novo link
     { name: 'Configurações', icon: 'settings', path: '/settings' },
   ];
 
@@ -26,7 +27,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const SidebarContent = (isMobile: boolean) => (
     <div className={`flex flex-col justify-between h-full bg-surface-dark border-r border-border-dark transition-all duration-300 relative ${isMobile ? 'w-72' : (isCollapsed ? 'w-20' : 'w-64')}`}>
       <div className="flex flex-col gap-8 p-4 md:p-6">
-        {/* Logo Section */}
         <div className={`flex items-center gap-3 transition-all ${isCollapsed && !isMobile ? 'justify-center' : ''}`}>
           <div className="bg-primary size-10 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/30">
             <span className="material-symbols-outlined text-white text-2xl">rocket_launch</span>
@@ -39,7 +39,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
           )}
         </div>
 
-        {/* Navigation */}
         <nav className="flex flex-col gap-2">
           {navItems.map((item) => (
             <Link
@@ -67,10 +66,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         </nav>
       </div>
 
-      {/* Footer / Credits Section */}
       <div className={`p-4 md:p-6 flex flex-col gap-4 border-t border-border-dark bg-background-dark/30 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
         {(!isCollapsed || isMobile) ? (
-          <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner animate-in fade-in duration-500">
+          <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner">
             <div className="flex justify-between items-center mb-3">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldo</span>
               <div className="bg-accent-green/20 text-accent-green text-[9px] font-bold px-2 py-0.5 rounded-full">ATIVO</div>
@@ -80,33 +78,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
               <span className="text-[10px] font-bold text-slate-500">créditos</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-2/3 shadow-[0_0_8px_rgba(134,85,246,0.3)]"></div>
+              <div className="bg-primary h-full w-2/3"></div>
             </div>
           </div>
         ) : (
-          <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors border border-primary/20">
+          <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs">
             350
           </div>
         )}
 
-        {/* Minimalist Desktop Toggle Button - High Z-Index to stay in front of everything */}
         {!isMobile && (
           <button 
             onClick={onToggleCollapse}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 size-6 bg-border-dark border border-white/10 text-slate-400 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-2xl z-[200] group"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 size-6 bg-border-dark border border-white/10 text-slate-400 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-2xl z-[200]"
           >
-            <span className={`material-symbols-outlined text-sm transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`}>
-              chevron_left
-            </span>
-          </button>
-        )}
-        
-        {isMobile && (
-          <button 
-            onClick={closeMenu}
-            className="w-full py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
-          >
-            Fechar Menu
+            <span className={`material-symbols-outlined text-sm ${isCollapsed ? 'rotate-180' : ''}`}>chevron_left</span>
           </button>
         )}
       </div>
@@ -122,10 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
           </div>
           <span className="text-white font-black text-sm tracking-tight">DarkFlow</span>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="size-10 flex items-center justify-center rounded-xl bg-background-dark text-white border border-border-dark active:scale-95 transition-transform"
-        >
+        <button onClick={() => setIsMobileMenuOpen(true)} className="size-10 flex items-center justify-center rounded-xl bg-background-dark text-white border border-border-dark">
           <span className="material-symbols-outlined">menu</span>
         </button>
       </div>
@@ -135,15 +118,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
       </aside>
 
       <div className={`fixed inset-0 z-50 lg:hidden pointer-events-none ${isMobileMenuOpen ? 'pointer-events-auto' : ''}`}>
-        <div 
-          className={`absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500 ease-in-out ${
-            isMobileMenuOpen ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={closeMenu}
-        />
-        <div className={`absolute top-0 left-0 h-full transition-transform duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-2xl ${
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <div className={`absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeMenu} />
+        <div className={`absolute top-0 left-0 h-full transition-transform duration-500 shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           {SidebarContent(true)}
         </div>
       </div>

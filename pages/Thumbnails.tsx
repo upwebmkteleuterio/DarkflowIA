@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Project } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Project, ScriptItem } from '../types';
 import { useThumbnailQueue } from '../hooks/useThumbnailQueue';
 import FullscreenPreview from '../components/Thumbnails/FullscreenPreview';
 
@@ -12,8 +12,9 @@ interface ThumbnailsProps {
 
 const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState(project.items[0]?.id || '');
   
-  // Configurações de Lote de Thumbnail
+  // Configurações Globais (Servem de fallback e controle de estilo/variante)
   const [batchConfig, setBatchConfig] = useState({
     mode: 'auto' as 'auto' | 'manual',
     prompt: '',
@@ -24,11 +25,41 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
   const {
     isProcessing,
     handleStartBatch,
+    handleGenerateSingle,
     handleRetry,
     stats
   } = useThumbnailQueue(project, onUpdate);
 
   const itemsArray = project.items || [];
+  const selectedItem = itemsArray.find(i => i.id === selectedItemId);
+
+  // Sincroniza o modo do item selecionado se ele já tiver um definido
+  useEffect(() => {
+    if (selectedItem) {
+      setBatchConfig(prev => ({
+        ...prev,
+        mode: selectedItem.thumbMode || 'auto',
+        prompt: selectedItem.thumbPrompt || ''
+      }));
+    }
+  }, [selectedItemId]);
+
+  const updateSelectedItemConfig = (updates: Partial<ScriptItem>) => {
+    const updatedItems = itemsArray.map(item => 
+      item.id === selectedItemId ? { ...item, ...updates } : item
+    );
+    onUpdate({ ...project, items: updatedItems });
+  };
+
+  const handleModeChange = (mode: 'auto' | 'manual') => {
+    setBatchConfig(prev => ({ ...prev, mode }));
+    updateSelectedItemConfig({ thumbMode: mode });
+  };
+
+  const handlePromptChange = (prompt: string) => {
+    setBatchConfig(prev => ({ ...prev, prompt }));
+    updateSelectedItemConfig({ thumbPrompt: prompt });
+  };
 
   const downloadImage = (url: string, title: string) => {
     const link = document.createElement('a');
@@ -47,21 +78,54 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
     <div className="max-w-[1600px] mx-auto px-6 py-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* COLUNA ESQUERDA: CONFIGURAÇÕES DE ARTE EM LOTE (1/3) */}
+        {/* COLUNA ESQUERDA: CONFIGURAÇÕES E SELETOR (1/3) */}
         <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8">
+          
+          {/* SELETOR DE TÍTULOS (PADRÃO SEO) */}
+          <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-border-dark bg-card-dark/30 flex justify-between items-center">
+               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Lista de Produção</h4>
+               <span className="text-[9px] font-bold text-slate-600 bg-background-dark px-2 py-0.5 rounded-full">{itemsArray.length} VÍDEOS</span>
+            </div>
+            <div className="max-h-[340px] overflow-y-auto custom-scrollbar p-3 space-y-2">
+               {itemsArray.map(item => (
+                 <button
+                    key={item.id}
+                    onClick={() => setSelectedItemId(item.id)}
+                    className={`w-full p-4 rounded-2xl text-left transition-all group border ${
+                      selectedItemId === item.id 
+                        ? 'bg-white/5 border-primary shadow-lg' 
+                        : 'bg-transparent border-transparent hover:bg-white/5'
+                    }`}
+                 >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`size-2 rounded-full ${item.thumbnails.length > 0 ? 'bg-accent-green shadow-[0_0_8px_#39FF14]' : (item.thumbStatus === 'generating' ? 'bg-primary animate-pulse' : (item.thumbStatus === 'failed' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-slate-700'))}`}></div>
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${item.thumbnails.length > 0 ? 'text-accent-green' : (item.thumbStatus === 'generating' ? 'text-primary' : (item.thumbStatus === 'failed' ? 'text-red-500' : 'text-slate-500'))}`}>
+                        {item.thumbnails.length > 0 ? `${item.thumbnails.length} ARTES PRONTAS` : (item.thumbStatus === 'generating' ? 'GERANDO...' : (item.thumbStatus === 'failed' ? 'FALHA' : 'PENDENTE'))}
+                      </span>
+                    </div>
+                    <p className={`text-xs font-bold leading-tight line-clamp-2 ${selectedItemId === item.id ? 'text-white' : 'text-slate-400'}`}>
+                      {item.title}
+                    </p>
+                 </button>
+               ))}
+            </div>
+          </div>
+
+          {/* CONFIGURAÇÕES DE ARTE */}
           <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-border-dark bg-card-dark/50">
-              <h3 className="text-xl font-black text-white font-display tracking-tight uppercase">Configuração de Thumbnails</h3>
-              <p className="text-slate-500 text-xs">Defina como a IA criará as artes para o seu lote.</p>
+              <h3 className="text-xl font-black text-white font-display tracking-tight uppercase">Configuração</h3>
+              <p className="text-slate-500 text-xs">Defina o comportamento da IA.</p>
             </div>
 
             <div className="p-6 space-y-8">
               {/* MODO DE GERAÇÃO */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estratégia de Prompt</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estratégia para este vídeo</label>
                 
                 <div 
-                  onClick={() => setBatchConfig(prev => ({...prev, mode: 'auto'}))}
+                  onClick={() => handleModeChange('auto')}
                   className={`p-4 rounded-2xl border cursor-pointer transition-all ${batchConfig.mode === 'auto' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30 opacity-60'}`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -71,28 +135,44 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                     </div>
                     <input type="radio" checked={batchConfig.mode === 'auto'} readOnly className="accent-primary" />
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA lerá o roteiro de cada vídeo individualmente para criar artes altamente contextuais.</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA lerá o roteiro deste vídeo específico para criar uma arte contextual.</p>
                 </div>
 
                 <div 
-                  onClick={() => setBatchConfig(prev => ({...prev, mode: 'manual'}))}
+                  onClick={() => handleModeChange('manual')}
                   className={`p-4 rounded-2xl border cursor-pointer transition-all ${batchConfig.mode === 'manual' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30 opacity-60'}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-sm">edit_note</span>
-                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Manual (Descritivo)</h4>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Prompt Customizado</h4>
                     </div>
                     <input type="radio" checked={batchConfig.mode === 'manual'} readOnly className="accent-primary" />
                   </div>
                   <textarea 
                     disabled={batchConfig.mode !== 'manual'}
                     className="w-full h-24 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600 disabled:opacity-50"
-                    placeholder="Descreva a cena que deseja para todas as thumbs (ex: Um astronauta triste em Marte)..."
+                    placeholder="Descreva a cena específica para este vídeo..."
                     value={batchConfig.prompt}
-                    onChange={(e) => setBatchConfig(prev => ({...prev, prompt: e.target.value}))}
+                    onChange={(e) => handlePromptChange(e.target.value)}
                   />
                 </div>
+              </div>
+
+              {/* ESTILO ARTÍSTICO */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo Visual (Lote)</label>
+                <select 
+                  className="w-full bg-surface-dark border border-border-dark rounded-xl py-3 px-3 text-xs text-white outline-none focus:ring-1 focus:ring-primary"
+                  value={batchConfig.style}
+                  onChange={(e) => setBatchConfig(prev => ({...prev, style: e.target.value}))}
+                >
+                  <option value="realistic">Foto Realista (Cinema 4D)</option>
+                  <option value="3d">3D Render High-Contrast</option>
+                  <option value="cyber">Cyberpunk Dark Channel</option>
+                  <option value="anime">Anime / Ilustrado</option>
+                  <option value="minimalist">Minimalista Moderno</option>
+                </select>
               </div>
 
               {/* VARIAÇÕES */}
@@ -113,50 +193,14 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                   ))}
                 </div>
               </div>
-
-              {/* ESTILO ARTÍSTICO */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo Visual</label>
-                <select 
-                  className="w-full bg-surface-dark border border-border-dark rounded-xl py-3 px-3 text-xs text-white outline-none focus:ring-1 focus:ring-primary"
-                  value={batchConfig.style}
-                  onChange={(e) => setBatchConfig(prev => ({...prev, style: e.target.value}))}
-                >
-                  <option value="realistic">Foto Realista (Cinema 4D)</option>
-                  <option value="3d">3D Render High-Contrast</option>
-                  <option value="cyber">Cyberpunk Dark Channel</option>
-                  <option value="anime">Anime / Ilustrado</option>
-                  <option value="minimalist">Minimalista Moderno</option>
-                </select>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* COLUNA DIREITA: FILA DE ARTES (2/3) */}
+        {/* COLUNA DIREITA: PRODUÇÃO E GALERIA (2/3) */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Resumo Rápido */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vídeos Total</span>
-              <p className="text-xl font-black text-white">{stats.total}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-accent-green uppercase tracking-widest">Artes Prontas</span>
-              <p className="text-xl font-black text-white">{stats.completed}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-primary uppercase tracking-widest">Fila</span>
-              <p className="text-xl font-black text-white">{stats.pending}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">Falhas</span>
-              <p className="text-xl font-black text-white">{stats.failed}</p>
-            </div>
-          </div>
-
-          {/* Ações da Fila */}
+          {/* Dashboard de Status de Lote */}
           <div className="bg-surface-dark border border-border-dark p-6 rounded-[32px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div className={`size-12 rounded-2xl flex items-center justify-center ${isProcessing ? 'bg-primary animate-pulse' : 'bg-white/5 text-slate-500'}`}>
@@ -164,10 +208,10 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
               </div>
               <div>
                 <h3 className="text-base font-bold text-white leading-tight">
-                  {isProcessing ? 'Processando Lote...' : 'Produção de Artes'}
+                  {isProcessing ? 'Processando Lote...' : 'Fila de Produção'}
                 </h3>
                 <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-                  {stats.completed}/{stats.total} Vídeos Com Capa
+                  {stats.completed}/{stats.total} Vídeos Finalizados
                 </p>
               </div>
             </div>
@@ -178,8 +222,8 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                 disabled={isStartDisabled}
                 className="flex-1 md:flex-none px-8 py-3.5 bg-primary hover:bg-primary-hover text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <span className="material-symbols-outlined text-sm">brush</span>
-                Iniciar Produção
+                <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                Iniciar Lote
               </button>
               
               {stats.completed > 0 && (
@@ -187,89 +231,109 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                   onClick={onNext}
                   className="flex-1 md:flex-none px-8 py-3.5 bg-white text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl hover:bg-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                  Próxima Etapa
+                  Avançar
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Lista de Itens com Preview de Thumb */}
-          <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden">
-            <div className="grid grid-cols-[100px_1fr_180px_120px] p-4 border-b border-border-dark bg-card-dark/30 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-              <span className="text-center">Arte</span>
-              <span className="ml-4">Título do Vídeo</span>
-              <span className="text-center">Status</span>
-              <span className="text-right mr-4">Ações</span>
+          {/* Área de Visualização Individual */}
+          <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden flex flex-col h-full min-h-[600px]">
+            {/* Cabeçalho de Contexto */}
+            <div className="p-8 border-b border-border-dark/50 bg-card-dark/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Vídeo em Foco</span>
+                  <div className="h-px flex-1 bg-border-dark/50"></div>
+                </div>
+                <h3 className="text-2xl font-black text-white leading-tight mb-2">{selectedItem?.title || 'Selecione um título'}</h3>
+                <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-slate-500 text-sm">description</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{selectedItem?.script?.split(' ').length || 0} palavras no roteiro</span>
+                   </div>
+                   <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-slate-500 text-sm">tag</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{project.niche}</span>
+                   </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 w-full md:w-auto">
+                 <button 
+                   onClick={() => handleGenerateSingle(selectedItemId, batchConfig)}
+                   disabled={selectedItem?.thumbStatus === 'generating' || isProcessing}
+                   className="w-full md:w-auto px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+                 >
+                   <span className="material-symbols-outlined text-sm">{selectedItem?.thumbStatus === 'generating' ? 'sync' : 'brush'}</span>
+                   {selectedItem?.thumbStatus === 'generating' ? 'Gerando...' : 'Gerar Apenas Este'}
+                 </button>
+                 {selectedItem?.thumbStatus === 'failed' && (
+                    <button 
+                      onClick={() => handleRetry(selectedItemId, batchConfig)}
+                      className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center justify-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-xs">refresh</span>
+                      Tentar Novamente
+                    </button>
+                 )}
+              </div>
             </div>
 
-            <div className="divide-y divide-border-dark/30 max-h-[600px] overflow-y-auto custom-scrollbar">
-              {itemsArray.map((item) => (
-                <div key={item.id} className="grid grid-cols-[100px_1fr_180px_120px] p-4 items-center hover:bg-white/5 transition-colors group">
-                  {/* Preview da Imagem */}
-                  <div className="flex justify-center">
-                    {item.thumbnails && item.thumbnails[0] ? (
+            {/* Galeria de Thumbnails */}
+            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                {selectedItem?.thumbStatus === 'generating' && (
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center bg-background-dark/30 rounded-3xl border border-primary/20 animate-in fade-in duration-500">
+                    <div className="relative size-16 mb-6">
+                       <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
+                       <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <p className="text-white font-black uppercase tracking-widest text-xs">Criando Artes de Alta Qualidade...</p>
+                    <p className="text-slate-500 text-[10px] mt-1 italic">Isto pode levar até 15 segundos.</p>
+                  </div>
+                )}
+
+                {selectedItem?.thumbnails && selectedItem.thumbnails.length > 0 ? (
+                  selectedItem.thumbnails.map((url, idx) => (
+                    <div key={idx} className="group relative aspect-video bg-background-dark rounded-3xl overflow-hidden border border-border-dark shadow-2xl animate-in zoom-in-95 duration-500">
                       <div 
-                        onClick={() => setFullscreenImage(item.thumbnails[0])}
-                        className="w-16 aspect-video rounded-md bg-cover bg-center border border-border-dark cursor-zoom-in hover:scale-110 transition-transform shadow-lg"
-                        style={{ backgroundImage: `url(${item.thumbnails[0]})` }}
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
+                        style={{ backgroundImage: `url("${url}")` }}
                       />
-                    ) : (
-                      <div className="w-16 aspect-video rounded-md bg-background-dark border border-border-dark flex items-center justify-center text-slate-700">
-                        <span className="material-symbols-outlined text-xs">image_not_supported</span>
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4 backdrop-blur-[2px]">
+                        <button 
+                          onClick={() => setFullscreenImage(url)}
+                          className="bg-white text-black px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-110 transition-transform shadow-2xl"
+                        >
+                          <span className="material-symbols-outlined">fullscreen</span>
+                          Ampliar
+                        </button>
+                        <button 
+                          onClick={() => downloadImage(url, selectedItem.title)}
+                          className="bg-primary text-white size-12 rounded-xl flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-primary/20"
+                        >
+                          <span className="material-symbols-outlined">download</span>
+                        </button>
                       </div>
-                    )}
+                      {idx === 0 && (
+                        <div className="absolute top-4 left-4 bg-accent-green text-black text-[9px] font-black px-3 py-1 rounded-full shadow-lg">
+                          RECOMENDADA
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : !isProcessing && selectedItem?.thumbStatus !== 'generating' && (
+                  <div className="col-span-full py-24 flex flex-col items-center justify-center text-slate-600 bg-background-dark/20 rounded-[40px] border-2 border-dashed border-border-dark/40">
+                    <div className="size-20 bg-surface-dark rounded-full flex items-center justify-center mb-6">
+                       <span className="material-symbols-outlined text-4xl opacity-20">image_search</span>
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-1 uppercase tracking-tight">Sem artes geradas</h4>
+                    <p className="text-xs text-slate-500 max-w-xs text-center">Configure a estratégia ao lado e clique em Iniciar Lote ou Gerar Apenas Este.</p>
                   </div>
-
-                  <p className="text-xs font-bold text-slate-200 truncate pr-4 max-w-full" title={item.title}>
-                    {item.title}
-                  </p>
-                  
-                  <div className="flex justify-center">
-                    {item.thumbnails.length > 0 && (
-                      <span className="text-[9px] font-black text-accent-green bg-accent-green/10 px-3 py-1 rounded-full border border-accent-green/20">
-                        {item.thumbnails.length} {item.thumbnails.length === 1 ? 'ARTE' : 'ARTES'}
-                      </span>
-                    )}
-                    {item.thumbStatus === 'generating' && <span className="text-[9px] font-black text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20 animate-pulse">GERANDO ARTE...</span>}
-                    {item.thumbStatus === 'pending' && <span className="text-[9px] font-black text-slate-500 bg-slate-500/10 px-3 py-1 rounded-full border border-slate-500/20">NA FILA</span>}
-                    {item.thumbStatus === 'failed' && <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">FALHA</span>}
-                    {(!item.thumbStatus && item.thumbnails.length === 0) && <span className="text-[9px] font-black text-slate-600">---</span>}
-                  </div>
-
-                  <div className="flex justify-end gap-1.5 pr-2">
-                    {item.thumbnails.length > 0 && (
-                      <>
-                        <button 
-                          onClick={() => setFullscreenImage(item.thumbnails[0])}
-                          className="size-8 bg-white/5 hover:bg-primary hover:text-white rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
-                          title="Ver em Tela Cheia"
-                        >
-                          <span className="material-symbols-outlined text-base">fullscreen</span>
-                        </button>
-                        <button 
-                          onClick={() => downloadImage(item.thumbnails[0], item.title)}
-                          className="size-8 bg-white/5 hover:bg-accent-green hover:text-black rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
-                          title="Baixar Thumbnail"
-                        >
-                          <span className="material-symbols-outlined text-base">download</span>
-                        </button>
-                      </>
-                    )}
-                    
-                    {(item.thumbStatus === 'failed' || (item.thumbnails.length > 0 && !isProcessing)) && (
-                      <button 
-                        onClick={() => handleRetry(item.id, batchConfig)}
-                        disabled={isProcessing}
-                        className="size-8 bg-white/5 hover:bg-primary hover:text-white rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark disabled:opacity-30"
-                        title="Regerar Artes"
-                      >
-                        <span className="material-symbols-outlined text-base">refresh</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
           </div>
         </div>
