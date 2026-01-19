@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 
 interface EnergyBeamProps {
@@ -53,6 +52,10 @@ const EnergyBeam: React.FC<EnergyBeamProps> = ({
                 ref={containerRef}
                 data-us-project={projectId}
                 className="w-full h-full"
+                style={{ 
+                    filter: 'hue-rotate(235deg) brightness(1.2) saturate(1.5)',
+                    opacity: 0.9
+                }}
             />
         </div>
     );
