@@ -17,6 +17,7 @@ export interface ScriptItem {
   thumbStatus?: 'pending' | 'generating' | 'completed' | 'failed';
   thumbPrompt?: string;
   thumbMode?: 'auto' | 'manual';
+  // Fix: Adicionando propriedades de locução para suportar a funcionalidade de Voiceover e corrigir erros de tipo no hook useVoiceover
   voiceStatus?: 'pending' | 'generating' | 'completed' | 'failed';
   voiceName?: string;
   audioUrl?: string;

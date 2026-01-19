@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -10,17 +11,24 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, profile, signOut } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/' && location.pathname.startsWith('/projects')) return true;
+    return location.pathname === path;
+  };
 
   const navItems = [
-    { name: 'Meus Projetos', icon: 'grid_view', path: '/' },
-    { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator' },
-    { name: 'Trend Hunter', icon: 'radar', path: '/trends' },
-    { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans' },
-    { name: 'Calculadora de Custos', icon: 'calculate', path: '/cost-estimator' }, // Novo link
-    { name: 'Configurações', icon: 'settings', path: '/settings' },
+    { name: 'Meus Projetos', icon: 'grid_view', path: '/', roles: ['free', 'pro', 'adm'] },
+    { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator', roles: ['free', 'pro', 'adm'] },
+    { name: 'Trend Hunter', icon: 'radar', path: '/trends', roles: ['free', 'pro', 'adm'] },
+    { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans', roles: ['free', 'pro', 'adm'] },
+    { name: 'Gestão de Planos', icon: 'payments', path: '/admin/plans', roles: ['adm'] },
+    { name: 'Calculadora API', icon: 'calculate', path: '/cost-estimator', roles: ['adm'] },
   ];
+
+  const userRole = profile?.role || 'free';
+  const filteredNavItems = navItems.filter(item => item.roles.includes(userRole));
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
@@ -34,19 +42,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
           {(!isCollapsed || isMobile) && (
             <div className="flex flex-col overflow-hidden whitespace-nowrap animate-in fade-in duration-300">
               <h1 className="text-white text-lg font-black leading-tight tracking-tight">DarkFlow AI</h1>
-              <p className="text-primary text-[10px] font-bold uppercase tracking-widest">Creator Suite</p>
+              <p className="text-primary text-[10px] font-bold uppercase tracking-widest">
+                {userRole === 'adm' ? 'Admin Panel' : 'Creator Suite'}
+              </p>
             </div>
           )}
         </div>
 
         <nav className="flex flex-col gap-2">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               onClick={closeMenu}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${
-                isActive(item.path) || (item.path === '/' && location.pathname.startsWith('/projects'))
+                isActive(item.path)
                   ? 'bg-primary text-white shadow-lg shadow-primary/20'
                   : 'text-slate-400 hover:bg-white/5 hover:text-white'
               } ${isCollapsed && !isMobile ? 'justify-center' : ''}`}
@@ -55,69 +65,98 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                 {item.icon}
               </span>
               {(!isCollapsed || isMobile) && <p className="text-sm font-bold whitespace-nowrap overflow-hidden animate-in fade-in duration-300">{item.name}</p>}
-              
-              {isCollapsed && !isMobile && (
-                <div className="absolute left-full ml-2 px-3 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-[150] whitespace-nowrap shadow-2xl scale-95 group-hover:scale-100 border border-white/10">
-                  {item.name}
-                </div>
-              )}
             </Link>
           ))}
         </nav>
       </div>
 
-      <div className={`p-4 md:p-6 flex flex-col gap-4 border-t border-border-dark bg-background-dark/30 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
-        {(!isCollapsed || isMobile) ? (
-          <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldo</span>
-              <div className="bg-accent-green/20 text-accent-green text-[9px] font-bold px-2 py-0.5 rounded-full">ATIVO</div>
-            </div>
-            <div className="flex items-baseline gap-1 mb-3">
-              <p className="text-2xl font-black text-white leading-none">350</p>
-              <span className="text-[10px] font-bold text-slate-500">créditos</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-primary h-full w-2/3"></div>
-            </div>
-          </div>
-        ) : (
-          <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs">
-            350
-          </div>
-        )}
+      <div className="flex flex-col gap-4">
+        {/* SALDOS SEGMENTADOS */}
+        <div className={`p-4 md:p-6 flex flex-col gap-3 border-t border-border-dark bg-background-dark/30 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
+          {(!isCollapsed || isMobile) ? (
+            <div className="space-y-3">
+              <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Roteiros</span>
+                  <span className="material-symbols-outlined text-xs text-primary">description</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-2xl font-black text-white leading-none">{profile?.text_credits ?? 0}</p>
+                  <span className="text-[10px] font-bold text-slate-500">créditos</span>
+                </div>
+              </div>
 
-        {!isMobile && (
-          <button 
-            onClick={onToggleCollapse}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 size-6 bg-border-dark border border-white/10 text-slate-400 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-2xl z-[200]"
-          >
-            <span className={`material-symbols-outlined text-sm ${isCollapsed ? 'rotate-180' : ''}`}>chevron_left</span>
-          </button>
-        )}
+              <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Imagens</span>
+                  <span className="material-symbols-outlined text-xs text-accent-green">image</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-2xl font-black text-white leading-none">{profile?.image_credits ?? 0}</p>
+                  <span className="text-[10px] font-bold text-slate-500">créditos</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs" title="Roteiros">
+                {profile?.text_credits ?? 0}
+              </div>
+              <div className="size-10 bg-accent-green/10 rounded-xl flex items-center justify-center text-accent-green font-black text-xs" title="Imagens">
+                {profile?.image_credits ?? 0}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={`p-4 md:p-6 border-t border-border-dark ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
+           {(!isCollapsed || isMobile) ? (
+             <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                   <div className="size-8 rounded-full bg-slate-800 flex items-center justify-center text-primary font-black text-xs flex-shrink-0 border border-border-dark">
+                      {(profile?.display_name || user?.email)?.charAt(0).toUpperCase()}
+                   </div>
+                   <div className="flex flex-col overflow-hidden">
+                      <p className="text-[10px] text-white font-black truncate leading-tight">{profile?.display_name || user?.email}</p>
+                      <button onClick={signOut} className="text-left text-[9px] text-red-400 font-bold hover:underline uppercase tracking-tighter">Sair da Conta</button>
+                   </div>
+                </div>
+             </div>
+           ) : (
+             <button onClick={signOut} className="size-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                <span className="material-symbols-outlined text-lg">logout</span>
+             </button>
+           )}
+        </div>
       </div>
     </div>
   );
 
   return (
     <>
-      <div className="lg:hidden flex items-center justify-between p-4 bg-surface-dark border-b border-border-dark sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary size-8 rounded-lg flex items-center justify-center">
-            <span className="material-symbols-outlined text-white text-lg">rocket_launch</span>
+      {/* Header Mobile - Barra Superior Fluída */}
+      <div className="lg:hidden w-full h-16 bg-surface-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0 z-[40]">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary size-9 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <span className="material-symbols-outlined text-white text-xl">rocket_launch</span>
           </div>
-          <span className="text-white font-black text-sm tracking-tight">DarkFlow</span>
+          <span className="text-white font-black text-lg tracking-tight font-display italic">DarkFlow</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="size-10 flex items-center justify-center rounded-xl bg-background-dark text-white border border-border-dark">
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)} 
+          className="size-11 flex items-center justify-center rounded-xl bg-background-dark text-white border border-border-dark active:scale-95 transition-all"
+        >
           <span className="material-symbols-outlined">menu</span>
         </button>
       </div>
 
-      <aside className={`hidden lg:flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-visible transition-all duration-300 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+      {/* Desktop Sidebar - Lateral Fixa */}
+      <aside className={`hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-visible transition-all duration-300 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
         {SidebarContent(false)}
       </aside>
 
-      <div className={`fixed inset-0 z-50 lg:hidden pointer-events-none ${isMobileMenuOpen ? 'pointer-events-auto' : ''}`}>
+      {/* Mobile Drawer - Overlay */}
+      <div className={`fixed inset-0 z-[100] lg:hidden pointer-events-none ${isMobileMenuOpen ? 'pointer-events-auto' : ''}`}>
         <div className={`absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeMenu} />
         <div className={`absolute top-0 left-0 h-full transition-transform duration-500 shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           {SidebarContent(true)}

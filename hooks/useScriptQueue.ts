@@ -2,10 +2,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Project, ScriptItem } from '../types';
 import { generateScript } from '../services/geminiService';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export const useScriptQueue = (project: Project, onUpdate: (updated: Project) => void) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ScriptItem | null>(null);
+  const { user, profile, refreshProfile } = useAuth();
   
   const projectRef = useRef(project);
   
@@ -26,16 +29,27 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
     const currentItems = projectRef.current.items || [];
     const pendingItem = currentItems.find(item => item.status === 'pending');
     
-    if (!pendingItem) {
-      console.log("[QUEUE] Nenhum item pendente restante. Finalizando lote.");
+    if (!pendingItem || !user) {
       setIsProcessing(false);
       return;
     }
 
-    console.group(`[QUEUE] Processando Item: ${pendingItem.title}`);
+    // Cálculo de custo baseado no plano do perfil
+    const minutesPerCredit = (profile as any)?.minutes_per_credit || 30;
+    const duration = projectRef.current.globalDuration;
+    const creditsToDeduct = Math.ceil(duration / minutesPerCredit);
+
+    // Verificação preventiva de saldo antes de chamar a IA
+    if ((profile?.text_credits ?? 0) < creditsToDeduct) {
+      alert("Saldo de créditos de texto insuficiente.");
+      setIsProcessing(false);
+      return;
+    }
+
     updateItemStatus(pendingItem.id, { status: 'generating', error: undefined });
 
     try {
+      // 1. CHAMA A IA
       const script = await generateScript(
         pendingItem.title,
         projectRef.current.niche,
@@ -47,18 +61,34 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
         projectRef.current.baseTheme
       );
 
+      if (!script) throw new Error("A IA retornou um roteiro vazio.");
+
+      // 2. TENTA DEDUZIR CRÉDITOS VIA RPC (SEGURANÇA ATÔMICA)
+      const { data: success, error: rpcError } = await supabase.rpc('deduct_text_credits', {
+        user_id: user.id,
+        amount: creditsToDeduct
+      });
+
+      if (rpcError || !success) {
+        throw new Error("Falha ao processar pagamento de créditos. Operação cancelada.");
+      }
+
+      // 3. SALVA O RESULTADO
       updateItemStatus(pendingItem.id, { 
         status: 'completed', 
         script: script || '' 
       });
+
+      // Atualiza saldo na UI
+      await refreshProfile();
+
     } catch (error: any) {
       console.error("[QUEUE] Erro ao processar item:", error);
       updateItemStatus(pendingItem.id, { 
         status: 'failed', 
-        error: error.message || 'Erro na API do Gemini' 
+        error: error.message || 'Erro na produção' 
       });
     } finally {
-      console.groupEnd();
       setTimeout(processNextPending, 1500);
     }
   };

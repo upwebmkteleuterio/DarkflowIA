@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Project, ScriptItem } from '../types';
 import { useThumbnailQueue } from '../hooks/useThumbnailQueue';
 import FullscreenPreview from '../components/Thumbnails/FullscreenPreview';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import { TextArea } from '../components/ui/Input';
 
 interface ThumbnailsProps {
   project: Project;
@@ -14,7 +17,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState(project.items[0]?.id || '');
   
-  // Configurações (Servem de fallback e controle de estilo/variante)
   const [batchConfig, setBatchConfig] = useState({
     mode: 'auto' as 'auto' | 'manual',
     prompt: '',
@@ -32,7 +34,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
   const itemsArray = project.items || [];
   const selectedItem = itemsArray.find(i => i.id === selectedItemId);
 
-  // Sincroniza o modo do item selecionado se ele já tiver um definido
   useEffect(() => {
     if (selectedItem) {
       setBatchConfig(prev => ({
@@ -94,10 +95,15 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                     }`}
                  >
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`size-2 rounded-full ${item.thumbnails.length > 0 ? 'bg-accent-green shadow-[0_0_8px_#39FF14]' : (item.thumbStatus === 'generating' ? 'bg-primary animate-pulse' : (item.thumbStatus === 'failed' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-slate-700'))}`}></div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${item.thumbnails.length > 0 ? 'text-accent-green' : (item.thumbStatus === 'generating' ? 'text-primary' : (item.thumbStatus === 'failed' ? 'text-red-500' : 'text-slate-500'))}`}>
-                        {item.thumbnails.length > 0 ? `${item.thumbnails.length} ARTES PRONTAS` : (item.thumbStatus === 'generating' ? 'GERANDO...' : (item.thumbStatus === 'failed' ? 'FALHA' : 'PENDENTE'))}
-                      </span>
+                      {item.thumbnails.length > 0 ? (
+                        <Badge variant="success" pulse>{item.thumbnails.length} ARTES PRONTAS</Badge>
+                      ) : item.thumbStatus === 'generating' ? (
+                        <Badge variant="primary" pulse>GERANDO...</Badge>
+                      ) : item.thumbStatus === 'failed' ? (
+                        <Badge variant="error">FALHA</Badge>
+                      ) : (
+                        <Badge variant="neutral">PENDENTE</Badge>
+                      )}
                     </div>
                     <p className={`text-xs font-bold leading-tight line-clamp-2 ${selectedItemId === item.id ? 'text-white' : 'text-slate-400'}`}>
                       {item.title}
@@ -144,12 +150,12 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                     </div>
                     <input type="radio" checked={batchConfig.mode === 'manual'} readOnly className="accent-primary" />
                   </div>
-                  <textarea 
+                  <TextArea 
                     disabled={batchConfig.mode !== 'manual'}
-                    className="w-full h-24 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600 disabled:opacity-50"
                     placeholder="Descreva a cena específica..."
                     value={batchConfig.prompt}
                     onChange={(e) => handlePromptChange(e.target.value)}
+                    className="h-24 text-xs"
                   />
                 </div>
               </div>
@@ -174,17 +180,19 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Quantidade</label>
-                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md">{batchConfig.variations} {batchConfig.variations === 1 ? 'Imagem' : 'Imagens'}</span>
+                  <Badge variant="primary">{batchConfig.variations} {batchConfig.variations === 1 ? 'Imagem' : 'Imagens'}</Badge>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {[1, 2, 3, 4].map(n => (
-                    <button 
+                    <Button 
                       key={n}
+                      variant={batchConfig.variations === n ? 'primary' : 'outline'}
+                      size="sm"
                       onClick={() => setBatchConfig(prev => ({...prev, variations: n}))}
-                      className={`py-2 text-xs font-black rounded-lg border transition-all ${batchConfig.variations === n ? 'bg-primary border-primary text-white shadow-lg' : 'bg-background-dark border-border-dark text-slate-500 hover:text-white'}`}
+                      className="py-2"
                     >
                       {n}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -195,16 +203,17 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
         {/* COLUNA DIREITA: PRODUÇÃO E GALERIA (2/3) */}
         <div className="lg:col-span-2 space-y-8 h-full flex flex-col">
           
-          {/* Botão de Avançar Global (Fica fixo quando houver progresso) */}
+          {/* Botão de Avançar Global */}
           {stats.completed > 0 && (
             <div className="flex justify-end">
-              <button 
+              <Button 
                 onClick={onNext}
-                className="px-8 py-3.5 bg-white text-black font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-200 transition-all active:scale-95 flex items-center gap-2 shadow-xl"
+                variant="white"
+                size="lg"
+                icon="arrow_forward"
               >
                 Avançar para SEO
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
+              </Button>
             </div>
           )}
 
@@ -214,7 +223,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
             <div className="p-8 border-b border-border-dark/50 bg-card-dark/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Vídeo Selecionado</span>
+                  <Badge variant="primary">Vídeo Selecionado</Badge>
                   <div className="h-px flex-1 bg-border-dark/50"></div>
                 </div>
                 <h3 className="text-2xl font-black text-white leading-tight mb-2">{selectedItem?.title || 'Selecione um vídeo'}</h3>
@@ -231,14 +240,16 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
               </div>
 
               <div className="flex flex-col gap-2 w-full md:w-auto">
-                 <button 
+                 <Button 
                    onClick={() => handleGenerateSingle(selectedItemId, batchConfig)}
-                   disabled={selectedItem?.thumbStatus === 'generating' || isProcessing}
-                   className="w-full md:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-black text-xs uppercase tracking-[0.15em] rounded-2xl shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-30 active:scale-95"
+                   loading={selectedItem?.thumbStatus === 'generating' || isProcessing}
+                   icon="brush"
+                   size="lg"
+                   fullWidth
                  >
-                   <span className="material-symbols-outlined text-sm">{selectedItem?.thumbStatus === 'generating' ? 'sync' : 'brush'}</span>
                    {selectedItem?.thumbStatus === 'generating' ? 'Criando Artes...' : 'Gerar novas Imagens'}
-                 </button>
+                 </Button>
+
                  {selectedItem?.thumbStatus === 'failed' && (
                     <button 
                       onClick={() => handleRetry(selectedItemId, batchConfig)}
@@ -272,23 +283,25 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
                         style={{ backgroundImage: `url("${url}")` }}
                       />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4 backdrop-blur-[2px]">
-                        <button 
+                        <Button
+                          variant="white"
+                          size="md"
+                          icon="fullscreen"
                           onClick={() => setFullscreenImage(url)}
-                          className="bg-white text-black px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-110 transition-transform shadow-2xl"
                         >
-                          <span className="material-symbols-outlined">fullscreen</span>
                           Ampliar
-                        </button>
-                        <button 
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="md"
+                          icon="download"
                           onClick={() => downloadImage(url, selectedItem.title)}
-                          className="bg-primary text-white size-12 rounded-xl flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-primary/20"
-                        >
-                          <span className="material-symbols-outlined">download</span>
-                        </button>
+                          className="size-12 p-0"
+                        />
                       </div>
                       {idx === 0 && (
-                        <div className="absolute top-4 left-4 bg-accent-green text-black text-[9px] font-black px-3 py-1 rounded-full shadow-lg">
-                          RECOMENDADA
+                        <div className="absolute top-4 left-4">
+                          <Badge variant="success">RECOMENDADA</Badge>
                         </div>
                       )}
                     </div>

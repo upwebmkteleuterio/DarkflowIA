@@ -1,5 +1,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 import { Project } from '../types';
 
 export const useDashboard = (projects: Project[], onUpdateProjects: (projects: Project[]) => void) => {
@@ -8,17 +9,34 @@ export const useDashboard = (projects: Project[], onUpdateProjects: (projects: P
 
   const filteredProjects = useMemo(() => {
     return projects.filter(project => {
-      const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
-      if (filter === 'scripted') return matchesSearch && !!project.script;
-      if (filter === 'thumbnailed') return matchesSearch && project.thumbnails.length > 0;
+      const name = project.name || '';
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (filter === 'scripted') {
+         const hasScript = project.items?.some(i => i.status === 'completed');
+         return matchesSearch && hasScript;
+      }
+      if (filter === 'thumbnailed') {
+         const hasThumb = project.items?.some(i => i.thumbnails && i.thumbnails.length > 0);
+         return matchesSearch && hasThumb;
+      }
       return matchesSearch;
     });
   }, [projects, searchQuery, filter]);
 
-  const handleDeleteProject = useCallback((id: string) => {
+  const handleDeleteProject = useCallback(async (id: string) => {
     if (confirm("Deseja realmente excluir este projeto? Esta ação é irreversível.")) {
-      const updated = projects.filter(p => p.id !== id);
-      onUpdateProjects(updated);
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        const updated = projects.filter(p => p.id !== id);
+        onUpdateProjects(updated);
+      } else {
+        alert("Erro ao excluir projeto: " + error.message);
+      }
     }
   }, [projects, onUpdateProjects]);
 

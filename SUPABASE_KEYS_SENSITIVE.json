@@ -1,0 +1,7 @@
+
+{
+  "supabase_url": "https://yqoylbkoheamgrevmpyp.supabase.co",
+  "public_anon_key": "sb_publishable_--m-drdu110E5jS29JZVkQ_6WsaQB3M",
+  "service_role_secret": "sb_secret_sRfAAOOMpROqvRyIvLtD3g_uzZsXo3x",
+  "note": "Esta chave secreta nunca deve ser exposta no frontend em produção. Use apenas para scripts administrativos ou Edge Functions."
+}

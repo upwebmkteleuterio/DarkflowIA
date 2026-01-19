@@ -3,6 +3,8 @@ import React from 'react';
 import { Project } from '../types';
 import { useDashboard } from '../hooks/useDashboard';
 import ProjectCard from '../components/Dashboard/ProjectCard';
+import Button from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 interface DashboardProps {
   projects: Project[];
@@ -20,6 +22,12 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
     handleDeleteProject
   } = useDashboard(projects, (updated) => setProjects(updated));
 
+  const filterItems = [
+    { id: 'all', label: 'Todos', icon: 'list' },
+    { id: 'scripted', label: 'Roteiros', icon: 'description' },
+    { id: 'thumbnailed', label: 'Thumbs', icon: 'image' }
+  ];
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-10 py-8 md:py-12 animate-in fade-in duration-700">
       {/* Header & Welcome */}
@@ -31,46 +39,39 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
           <p className="text-slate-400 text-sm font-medium">Você tem {projects.length} projetos em andamento hoje.</p>
         </div>
         
-        <button 
+        <Button 
+          size="lg" 
+          icon="add" 
           onClick={onCreateProject}
-          className="flex items-center justify-center gap-3 px-8 py-4 bg-primary hover:bg-primary-hover text-white rounded-2xl transition-all shadow-2xl shadow-primary/20 group active:scale-95"
+          className="group"
         >
-          <span className="material-symbols-outlined font-bold group-hover:rotate-180 transition-transform duration-500">add</span>
-          <span className="font-black text-sm uppercase tracking-widest">Novo Projeto</span>
-        </button>
+          Novo Projeto
+        </Button>
       </div>
 
       {/* Toolbar: Busca e Filtros */}
       <div className="bg-surface-dark border border-border-dark p-2 rounded-2xl mb-10 flex flex-col md:flex-row gap-2 shadow-xl">
-        <div className="relative flex-1 group">
-          <span className="material-symbols-outlined absolute left-4 top-3.5 text-slate-500 group-focus-within:text-primary transition-colors">search</span>
-          <input 
-            type="text"
+        <div className="flex-1">
+          <Input 
+            icon="search"
             placeholder="Buscar projeto por nome..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-background-dark/50 border-none rounded-xl py-3.5 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-primary transition-all outline-none placeholder:text-slate-600"
           />
         </div>
         
         <div className="flex gap-2">
-          {[
-            { id: 'all', label: 'Todos', icon: 'list' },
-            { id: 'scripted', label: 'Roteiros', icon: 'description' },
-            { id: 'thumbnailed', label: 'Thumbs', icon: 'image' }
-          ].map((item) => (
-            <button
+          {filterItems.map((item) => (
+            <Button
               key={item.id}
+              variant={filter === item.id ? 'primary' : 'ghost'}
+              size="md"
+              icon={item.icon}
               onClick={() => setFilter(item.id as any)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all border ${
-                filter === item.id 
-                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10' 
-                : 'bg-transparent border-transparent text-slate-500 hover:text-white hover:bg-white/5'
-              }`}
+              className={filter === item.id ? 'shadow-lg shadow-primary/10' : ''}
             >
-              <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
               {item.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

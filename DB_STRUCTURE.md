@@ -1,36 +1,49 @@
 
-# Estrutura do Banco de Dados (Espelho)
+# Mirror do Banco de Dados (Supabase)
+*Este arquivo serve como referência técnica para a estrutura atual do banco de dados.*
 
-## Tabela: projects
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | UUID / TEXT | Identificador único do projeto (Lote) |
-| name | TEXT | Nome amigável do projeto |
-| niche | TEXT | Nicho/Tópico central |
-| baseTheme | TEXT | Contexto/Tema base para os roteiros |
-| targetAudience | TEXT | Descrição do público alvo |
-| createdAt | TIMESTAMP | Data de criação |
-| globalTone | TEXT | Tom de voz padrão do lote |
-| globalRetention | TEXT | Estrutura de retenção (AIDA, PAS, etc) |
-| globalDuration | INTEGER | Duração alvo em minutos |
-| scriptMode | TEXT | manual | winner | auto |
-| winnerTemplate | TEXT | Roteiro de referência para o modo vencedor |
-| positiveInstructions | TEXT | Instruções do que DEVE ter nos roteiros |
-| negativeInstructions | TEXT | Instruções do que NÃO deve ter |
+## Tabela: `public.plans`
+| Coluna | Tipo | Restrição | Padrão | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| id | UUID | PRIMARY KEY | - | - |
+| name | TEXT | - | - | - |
+| price | DECIMAL | - | 0 | - |
+| text_credits | INTEGER | - | 50 | Créditos mensais de roteiro |
+| image_credits | INTEGER | - | 20 | Créditos mensais de imagem |
+| minutes_per_credit | INTEGER | - | 30 | Base de cálculo para consumo |
+| max_duration_limit | INTEGER | - | 60 | Limite do slider no front |
+| type | TEXT | - | 'pro' | - |
 
-## Tabela: script_items (Relacionada a projects)
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | UUID / TEXT | Identificador único do vídeo |
-| project_id | UUID / TEXT | FK para o projeto pai |
-| title | TEXT | Título individual do vídeo |
-| script | TEXT | Conteúdo completo do roteiro |
-| status | TEXT | pending | generating | completed | failed |
-| thumbStatus | TEXT | pending | generating | completed | failed |
-| thumbPrompt | TEXT | Prompt customizado para a thumbnail |
-| thumbMode | TEXT | auto | manual |
-| thumbnails | JSON / ARRAY | Lista de URLs das imagens geradas |
-| description | TEXT | Metadados: Descrição SEO |
-| chapters | TEXT | Metadados: Timestamps/Capítulos |
-| tags | TEXT | Metadados: Lista de Tags virais |
-| error | TEXT | Mensagem de erro em caso de falha |
+## Tabela: `public.profiles`
+| Coluna | Tipo | Restrição | Padrão | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| id | UUID | PK, FK | - | - |
+| text_credits | INTEGER | - | 50 | Saldo atual de roteiros |
+| image_credits | INTEGER | - | 20 | Saldo atual de imagens |
+| plan_id | UUID | FK (plans.id) | - | ID do plano assinado |
+| role | TEXT | - | 'free' | - |
+| subscription_status | TEXT | - | 'active' | - |
+
+## Tabela: `public.script_items`
+| Coluna | Tipo | Restrição | Padrão | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| id | UUID | PRIMARY KEY | - | - |
+| project_id | UUID | FK | - | - |
+| title | TEXT | - | - | - |
+| script | TEXT | - | - | - |
+| thumbnails | TEXT[] | - | '{}' | Lista de URLs do Supabase Storage |
+| status | TEXT | - | 'pending' | Status do Roteiro |
+| thumb_status | TEXT | - | 'pending' | Status da Imagem |
+
+## Storage (Buckets)
+### Bucket: `thumbnails`
+- **ID**: `thumbnails`
+- **Acesso**: Público (Public)
+- **Objetivo**: Armazenar as imagens geradas para as capas dos vídeos.
+
+## RPC (Remote Procedure Calls)
+### `deduct_text_credits(user_id, amount)`
+- **Objetivo**: Deduzir créditos de texto de forma atômica.
+
+### `deduct_image_credits(user_id, amount)`
+- **Objetivo**: Deduzir créditos de imagem.

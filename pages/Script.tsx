@@ -1,8 +1,11 @@
 
 import React from 'react';
-import { Project, ScriptMode } from '../types';
+import { Project } from '../types';
 import { useScriptQueue } from '../hooks/useScriptQueue';
 import ScriptItemModal from '../components/Script/ScriptItemModal';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import { TextArea } from '../components/ui/Input';
 
 interface ScriptProps {
   project: Project;
@@ -24,7 +27,6 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
   const updateGlobal = (field: keyof Project, value: any) => {
     const updates: Partial<Project> = { [field]: value };
     
-    // Lógica de auto-seleção de chave:
     if (field === 'winnerTemplate' && value.trim().length > 5) {
       updates.scriptMode = 'winner';
     } else if (field === 'globalTone' || field === 'globalRetention') {
@@ -53,11 +55,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
             </div>
 
             <div className="p-6 space-y-8">
-              {/* DURAÇÃO (MOVIMENTADO PARA O TOPO) */}
+              {/* DURAÇÃO */}
               <section className="space-y-4 p-4 rounded-2xl border border-primary bg-primary/5 shadow-inner">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-black text-white uppercase tracking-widest ml-1">Tempo do Roteiro</label>
-                  <span className="bg-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded-md border border-primary/20">{project.globalDuration} min</span>
+                  <Badge variant="primary">{project.globalDuration} min</Badge>
                 </div>
                 <input 
                   type="range" min="3" max="30" 
@@ -69,11 +71,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
               </section>
 
               {/* MODO MANUAL */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'manual' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'manual' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">tune</span>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'manual' ? 'text-white' : 'text-slate-500'}`}>Configuração Manual</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Configuração Manual</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -84,9 +86,9 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   />
                 </div>
                 
-                <div className="space-y-3">
+                <div className={`space-y-3 transition-opacity duration-300 ${project.scriptMode === 'manual' ? 'opacity-100' : 'opacity-30'}`}>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tom de Voz</label>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tom de Voz</label>
                     <select 
                       disabled={project.scriptMode !== 'manual'}
                       className="w-full bg-surface-dark border border-border-dark rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
@@ -101,7 +103,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Estrutura</label>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Estrutura</label>
                     <select 
                       disabled={project.scriptMode !== 'manual'}
                       className="w-full bg-surface-dark border border-border-dark rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
@@ -118,11 +120,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
               </section>
 
               {/* MODO VENCEDOR */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'winner' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'winner' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">workspace_premium</span>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'winner' ? 'text-white' : 'text-slate-500'}`}>Roteiro Vencedor</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Roteiro Vencedor</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -133,21 +135,23 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   />
                 </div>
                 
-                <textarea 
-                  disabled={project.scriptMode !== 'winner'}
-                  className="w-full h-32 bg-surface-dark border border-border-dark rounded-xl p-3 text-xs text-slate-300 focus:ring-1 focus:ring-primary outline-none transition-all resize-none placeholder:text-slate-600 disabled:opacity-50"
-                  placeholder="Cole aqui sua estrutura vencedora de roteiro e a nossa IA irá criar baseado nela..."
-                  value={project.winnerTemplate || ''}
-                  onChange={(e) => updateGlobal('winnerTemplate', e.target.value)}
-                />
+                <div className={`transition-opacity duration-300 ${project.scriptMode === 'winner' ? 'opacity-100' : 'opacity-30'}`}>
+                  <TextArea 
+                    disabled={project.scriptMode !== 'winner'}
+                    placeholder="Cole aqui sua estrutura vencedora de roteiro e a nossa IA irá criar baseado nela..."
+                    value={project.winnerTemplate || ''}
+                    onChange={(e) => updateGlobal('winnerTemplate', e.target.value)}
+                    className="h-32 text-xs"
+                  />
+                </div>
               </section>
 
               {/* MODO AUTOMÁTICO */}
-              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'auto' ? 'border-primary bg-primary/5 opacity-100' : 'border-border-dark bg-background-dark/30 opacity-40 grayscale-[0.5]'}`}>
+              <section className={`space-y-4 p-4 rounded-2xl border transition-all duration-300 ${project.scriptMode === 'auto' ? 'border-primary bg-primary/5' : 'border-border-dark bg-background-dark/30'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${project.scriptMode === 'auto' ? 'text-white' : 'text-slate-500'}`}>Automático</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Automático</h4>
                   </div>
                   <input 
                     type="radio" 
@@ -157,7 +161,9 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                     className="accent-primary cursor-pointer"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 leading-relaxed italic">A IA definirá o melhor tom e estrutura narrativa de forma inteligente para cada vídeo individualmente.</p>
+                <p className={`text-[10px] text-slate-500 leading-relaxed italic transition-opacity duration-300 ${project.scriptMode === 'auto' ? 'opacity-100' : 'opacity-30'}`}>
+                  A IA definirá o melhor tom e estrutura narrativa de forma inteligente para cada vídeo individualmente.
+                </p>
               </section>
             </div>
           </div>
@@ -168,22 +174,21 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
           
           {/* Resumo Rápido */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total</span>
-              <p className="text-xl font-black text-white">{stats.total}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-accent-green uppercase tracking-widest">Prontos</span>
-              <p className="text-xl font-black text-white">{stats.completed}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-primary uppercase tracking-widest">Fila</span>
-              <p className="text-xl font-black text-white">{stats.pending}</p>
-            </div>
-            <div className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">Falhas</span>
-              <p className="text-xl font-black text-white">{stats.failed}</p>
-            </div>
+            {[
+              { label: 'Total', value: stats.total, color: 'neutral' },
+              { label: 'Prontos', value: stats.completed, color: 'success' },
+              { label: 'Fila', value: stats.pending, color: 'primary' },
+              { label: 'Falhas', value: stats.failed, color: 'error' }
+            ].map(stat => (
+              <div key={stat.label} className="bg-surface-dark border border-border-dark p-4 rounded-2xl flex flex-col items-center">
+                <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${
+                  stat.color === 'success' ? 'text-accent-green' : 
+                  stat.color === 'primary' ? 'text-primary' : 
+                  stat.color === 'error' ? 'text-red-500' : 'text-slate-500'
+                }`}>{stat.label}</span>
+                <p className="text-xl font-black text-white">{stat.value}</p>
+              </div>
+            ))}
           </div>
 
           {/* Ações da Fila */}
@@ -203,23 +208,26 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <button 
+              <Button 
                 onClick={handleStartBatch}
                 disabled={isStartDisabled}
-                className="flex-1 md:flex-none px-8 py-3.5 bg-primary hover:bg-primary-hover text-white font-black text-xs uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                icon="play_arrow"
+                size="lg"
+                className="flex-1 md:flex-none"
               >
-                <span className="material-symbols-outlined text-sm">play_arrow</span>
                 Iniciar Produção
-              </button>
+              </Button>
               
               {stats.completed > 0 && (
-                <button 
+                <Button 
                   onClick={onNext}
-                  className="flex-1 md:flex-none px-8 py-3.5 bg-white text-black font-black text-xs uppercase tracking-[0.2em] rounded-xl hover:bg-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  variant="white"
+                  size="lg"
+                  icon="arrow_forward"
+                  className="flex-1 md:flex-none"
                 >
                   Próxima Etapa
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -240,40 +248,43 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                   </p>
                   
                   <div className="flex justify-center">
-                    {item.status === 'completed' && <span className="text-[9px] font-black text-accent-green bg-accent-green/10 px-4 py-1.5 rounded-full border border-accent-green/20">CONCLUÍDO</span>}
-                    {item.status === 'generating' && <span className="text-[9px] font-black text-primary bg-primary/10 px-4 py-1.5 rounded-full border border-primary/20 animate-pulse">GERANDO ROTEIRO...</span>}
-                    {item.status === 'pending' && <span className="text-[9px] font-black text-slate-500 bg-slate-500/10 px-4 py-1.5 rounded-full border border-slate-500/20">NA FILA</span>}
-                    {item.status === 'failed' && <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">FALHA</span>}
+                    {item.status === 'completed' && <Badge variant="success">CONCLUÍDO</Badge>}
+                    {item.status === 'generating' && <Badge variant="primary" pulse>GERANDO ROTEIRO...</Badge>}
+                    {item.status === 'pending' && <Badge variant="neutral">NA FILA</Badge>}
+                    {item.status === 'failed' && <Badge variant="error">FALHA</Badge>}
                   </div>
 
                   <div className="flex justify-end gap-1.5 pr-2">
                     {item.status === 'completed' && (
-                      <button 
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="edit_square"
                         onClick={() => setSelectedItem(item)}
-                        className="size-8 bg-white/5 hover:bg-primary hover:text-white rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
-                      >
-                        <span className="material-symbols-outlined text-base">edit_square</span>
-                      </button>
+                        className="size-8 p-0"
+                      />
                     )}
                     
                     {item.status === 'failed' && (
-                      <button 
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon="refresh"
                         onClick={() => handleRetry(item.id)}
-                        className="size-8 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg flex items-center justify-center transition-all border border-red-500/20"
-                      >
-                        <span className="material-symbols-outlined text-base">refresh</span>
-                      </button>
+                        className="size-8 p-0"
+                      />
                     )}
 
                     {item.status === 'completed' && (
-                      <button 
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="content_copy"
                         onClick={() => {
                           navigator.clipboard.writeText(item.script || '');
                         }}
-                        className="size-8 bg-white/5 hover:bg-accent-green hover:text-black rounded-lg flex items-center justify-center text-slate-400 transition-all border border-border-dark"
-                      >
-                        <span className="material-symbols-outlined text-base">content_copy</span>
-                      </button>
+                        className="size-8 p-0 hover:text-accent-green hover:bg-accent-green/10"
+                      />
                     )}
                   </div>
                 </div>

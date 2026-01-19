@@ -1,6 +1,7 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, useNavigate, useParams, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, useNavigate, useParams, Link, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Ideation from './pages/Ideation';
@@ -11,12 +12,39 @@ import Export from './pages/Export';
 import TrendHunter from './pages/TrendHunter';
 import TitleGenerator from './pages/TitleGenerator';
 import Pricing from './pages/Pricing';
-import CostEstimator from './pages/CostEstimator'; // Nova importação
+import CostEstimator from './pages/CostEstimator';
+import AdminPlans from './pages/AdminPlans';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
-const STORAGE_KEY = 'darkflow_ai_projects';
+const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
 
-const INITIAL_PROJECTS: Project[] = [];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background-dark flex items-center justify-center">
+        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (roles && profile && !roles.includes(profile.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <ErrorBoundary>
+      {children}
+    </ErrorBoundary>
+  );
+};
 
 const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => void }> = ({ projects, onUpdate }) => {
   const { id } = useParams();
@@ -35,10 +63,29 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
   const itemsCount = project.items?.length || 0;
   const isReadyForBatch = itemsCount > 0 && project.niche && project.baseTheme;
+  const hasCompletedScripts = project.items?.some(i => i.status === 'completed');
+  const hasCompletedThumbs = project.items?.some(i => i.thumbnails && i.thumbnails.length > 0);
+
+  const renderStep = () => {
+    switch (step) {
+      case ProjectStep.IDEATION:
+        return <Ideation project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.SCRIPT)} />;
+      case ProjectStep.SCRIPT:
+        return <Script project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.THUMBNAIL)} />;
+      case ProjectStep.THUMBNAIL:
+        return <Thumbnails project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.METADATA)} />;
+      case ProjectStep.METADATA:
+        return <Metadata project={project} onUpdate={onUpdate} />;
+      case ProjectStep.EXPORT:
+        return <Export project={project} onUpdate={onUpdate} />;
+      default:
+        return <Ideation project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.SCRIPT)} />;
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <header className="border-b border-border-dark bg-background-dark pt-6 px-4 md:px-8">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <header className="border-b border-border-dark bg-background-dark pt-6 px-4 md:px-8 shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div>
             <h2 className="text-xl md:text-2xl font-bold font-display tracking-tight text-white truncate max-w-[300px] md:max-w-[500px]">
@@ -47,66 +94,79 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
             <p className="text-slate-500 text-xs md:text-sm">Fábrica de Roteiros em Lote ({itemsCount} itens)</p>
           </div>
         </div>
-        <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar whitespace-nowrap">
-          <button onClick={() => setStep(ProjectStep.IDEATION)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.IDEATION ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>
+        <div className="flex gap-4 md:gap-8 overflow-x-auto custom-scrollbar whitespace-nowrap pb-1">
+          <button 
+            onClick={() => setStep(ProjectStep.IDEATION)} 
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.IDEATION ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
+          >
             <span className="material-symbols-outlined text-sm">edit_note</span>
             <p className="text-xs md:text-sm font-bold">1. Ideação</p>
           </button>
-          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.SCRIPT)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.SCRIPT ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
-            <span className="material-symbols-outlined text-sm">queue</span>
+          
+          <button 
+            disabled={!isReadyForBatch} 
+            onClick={() => setStep(ProjectStep.SCRIPT)} 
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all disabled:opacity-30 ${step === ProjectStep.SCRIPT ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
+          >
+            <span className="material-symbols-outlined text-sm">description</span>
             <p className="text-xs md:text-sm font-bold">2. Roteiros</p>
           </button>
-          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.THUMBNAIL)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.THUMBNAIL ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
+
+          <button 
+            disabled={!hasCompletedScripts} 
+            onClick={() => setStep(ProjectStep.THUMBNAIL)} 
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all disabled:opacity-30 ${step === ProjectStep.THUMBNAIL ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
+          >
             <span className="material-symbols-outlined text-sm">image</span>
-            <p className="text-xs md:text-sm font-bold">3. Thumbnail</p>
+            <p className="text-xs md:text-sm font-bold">3. Thumbs</p>
           </button>
-          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.METADATA)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.METADATA ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
-            <span className="material-symbols-outlined text-sm">insights</span>
+
+          <button 
+            disabled={!hasCompletedThumbs} 
+            onClick={() => setStep(ProjectStep.METADATA)} 
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all disabled:opacity-30 ${step === ProjectStep.METADATA ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
+          >
+            <span className="material-symbols-outlined text-sm">query_stats</span>
             <p className="text-xs md:text-sm font-bold">4. SEO</p>
           </button>
-          <button disabled={!isReadyForBatch} onClick={() => setStep(ProjectStep.EXPORT)} className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all ${step === ProjectStep.EXPORT ? 'border-primary text-primary' : 'border-transparent text-slate-400'} ${!isReadyForBatch ? 'opacity-40 cursor-not-allowed' : 'hover:text-white'}`}>
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            <p className="text-xs md:text-sm font-bold">5. Finalizar</p>
+
+          <button 
+            disabled={!hasCompletedThumbs} 
+            onClick={() => setStep(ProjectStep.EXPORT)} 
+            className={`flex items-center gap-2 border-b-2 pb-4 px-2 transition-all disabled:opacity-30 ${step === ProjectStep.EXPORT ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}
+          >
+            <span className="material-symbols-outlined text-sm">package_2</span>
+            <p className="text-xs md:text-sm font-bold">5. Exportar</p>
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto custom-scrollbar bg-background-dark/30">
-        {step === ProjectStep.IDEATION && <Ideation project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.SCRIPT)} />}
-        {isReadyForBatch && step === ProjectStep.SCRIPT && <Script project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.THUMBNAIL)} />}
-        {isReadyForBatch && step === ProjectStep.THUMBNAIL && <Thumbnails project={project} onUpdate={onUpdate} onNext={() => setStep(ProjectStep.METADATA)} />}
-        {isReadyForBatch && step === ProjectStep.METADATA && <Metadata project={project} onUpdate={onUpdate} />}
-        {isReadyForBatch && step === ProjectStep.EXPORT && <Export project={project} onUpdate={onUpdate} />}
-      </div>
+      <main className="flex-1 overflow-y-auto bg-background-dark/30 custom-scrollbar">
+        {renderStep()}
+      </main>
     </div>
   );
 };
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return INITIAL_PROJECTS;
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : INITIAL_PROJECTS;
-    } catch (e) {
-      return INITIAL_PROJECTS;
-    }
+    const saved = localStorage.getItem('darkflow_ai_projects');
+    return saved ? JSON.parse(saved) : [];
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const navigate = useNavigate();
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    localStorage.setItem('darkflow_ai_projects', JSON.stringify(projects));
   }, [projects]);
 
-  const handleUpdateProject = useCallback((updated: Project) => {
+  const handleUpdateProject = (updated: Project) => {
     setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
-  }, []);
+  };
 
-  const handleCreateProject = useCallback(() => {
-    const newId = Date.now().toString();
+  const createNewProject = () => {
     const newProject: Project = {
-      id: newId,
+      id: Date.now().toString(),
       name: 'Novo Projeto de Vídeo',
       niche: '',
       baseTheme: '',
@@ -117,26 +177,67 @@ const AppContent: React.FC = () => {
       globalRetention: 'AIDA',
       globalDuration: 12,
       thumbnails: [],
-      scriptMode: 'manual',
-      winnerTemplate: ''
+      scriptMode: 'auto'
     };
-    setProjects(prev => [newProject, ...prev]);
-    navigate(`/projects/${newId}`);
-  }, [navigate]);
+    setProjects([newProject, ...projects]);
+    window.location.hash = `#/projects/${newProject.id}`;
+  };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background-dark">
-      <Sidebar isCollapsed={isSidebarCollapsed} onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-      <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative transition-all duration-300">
+    <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 selection:bg-primary/30 overflow-hidden">
+      {!isAuthPage && (
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed} 
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+        />
+      )}
+      
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
         <Routes>
-          <Route path="/" element={<Dashboard projects={projects} setProjects={setProjects} onCreateProject={handleCreateProject} />} />
-          <Route path="/projects" element={<Dashboard projects={projects} setProjects={setProjects} onCreateProject={handleCreateProject} />} />
-          <Route path="/projects/:id" element={<ProjectFlow projects={projects} onUpdate={handleUpdateProject} />} />
-          <Route path="/trends" element={<TrendHunter />} />
-          <Route path="/title-generator" element={<TitleGenerator />} />
-          <Route path="/plans" element={<Pricing />} />
-          <Route path="/cost-estimator" element={<CostEstimator />} /> {/* Nova Rota */}
-          <Route path="/settings" element={<div className="p-10 text-slate-500">Configurações em breve.</div>} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/projects/:id" element={
+            <ProtectedRoute>
+              <ProjectFlow projects={projects} onUpdate={handleUpdateProject} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/trends" element={
+            <ProtectedRoute>
+              <TrendHunter />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/title-generator" element={
+            <ProtectedRoute>
+              <TitleGenerator />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/plans" element={
+            <ProtectedRoute>
+              <Pricing />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/cost-estimator" element={
+            <ProtectedRoute roles={['adm']}>
+              <CostEstimator />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin/plans" element={
+            <ProtectedRoute roles={['adm']}>
+              <AdminPlans />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
     </div>
@@ -145,9 +246,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 };
 
