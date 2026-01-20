@@ -1,14 +1,10 @@
 
 import React, { useEffect } from 'react';
-import Button from '../ui/Button';
 
 interface ScriptEditorProps {
   editorRef: React.RefObject<HTMLDivElement>;
   loading: boolean;
   localScript: string;
-  copying: boolean;
-  onCopy: () => void;
-  onExecCommand: (command: string) => void;
   onContentChange: (text: string) => void;
 }
 
@@ -16,14 +12,10 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   editorRef, 
   loading, 
   localScript, 
-  copying, 
-  onCopy, 
-  onExecCommand,
   onContentChange 
 }) => {
   
-  // SINCRONIZAÇÃO DE CONTEÚDO EDITÁVEL
-  // Isso resolve o bug onde o roteiro gera mas não aparece na tela
+  // Sincronização de conteúdo editável para garantir que o texto gerado apareça
   useEffect(() => {
     if (editorRef.current && localScript !== editorRef.current.innerText) {
       editorRef.current.innerText = localScript;
@@ -31,35 +23,14 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   }, [localScript, loading]);
 
   return (
-    <div className="bg-surface-dark border border-border-dark rounded-3xl shadow-2xl flex-1 flex flex-col mt-8 relative overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 p-3 border-b border-border-dark bg-surface-dark/95 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex gap-1">
-          <Button variant="ghost" size="sm" icon="format_bold" onClick={() => onExecCommand('bold')} className="size-10 p-0" />
-          <Button variant="ghost" size="sm" icon="format_italic" onClick={() => onExecCommand('italic')} className="size-10 p-0" />
-          <Button variant="ghost" size="sm" icon="format_list_bulleted" onClick={() => onExecCommand('insertUnorderedList')} className="size-10 p-0" />
-        </div>
-        
-        <div className="w-px h-6 bg-border-dark mx-3"></div>
-        
-        <div className="ml-auto">
-          <Button 
-            variant={copying ? 'white' : 'primary'}
-            size="md"
-            icon={copying ? 'check' : 'content_copy'}
-            onClick={onCopy}
-          >
-            {copying ? 'Copiado!' : 'Copiar Roteiro'}
-          </Button>
-        </div>
-      </div>
-      
-      <div className="flex-1 flex flex-col relative bg-background-dark/10">
+    <div className="bg-background-dark/20 border border-border-dark/50 rounded-[32px] flex-1 flex flex-col relative overflow-hidden min-h-[400px] md:min-h-0">
+      <div className="flex-1 flex flex-col relative overflow-hidden">
         <div 
           ref={editorRef}
           contentEditable={!loading}
           onInput={(e) => onContentChange(e.currentTarget.innerText)}
-          className="p-8 md:p-12 focus:outline-none flex-1 leading-relaxed text-xl text-white/90 whitespace-pre-wrap selection:bg-primary/30 min-h-[600px] font-sans"
+          className="p-6 md:p-10 focus:outline-none flex-1 overflow-y-auto custom-scrollbar leading-relaxed text-lg md:text-xl text-white/90 whitespace-pre-wrap selection:bg-primary/30 font-sans"
+          style={{ height: '100%' }}
         />
         
         {loading && (

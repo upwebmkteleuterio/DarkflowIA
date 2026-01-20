@@ -1,0 +1,142 @@
+
+import React, { useState, useMemo } from 'react';
+import { ScriptItem } from '../../types';
+import Badge from '../ui/Badge';
+import Button from '../ui/Button';
+import ScriptEditor from './ScriptEditor';
+import AdvanceButton from '../ui/AdvanceButton';
+
+interface ScriptMainPanelProps {
+  selectedItem: ScriptItem | undefined;
+  isAutoSaving: boolean;
+  isProcessing: boolean;
+  onUpdateScript: (text: string) => void;
+  onRetry: (id: string) => void;
+  onNext: () => void;
+  stats: {
+    completed: number;
+  };
+}
+
+const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
+  selectedItem,
+  isAutoSaving,
+  isProcessing,
+  onUpdateScript,
+  onRetry,
+  onNext,
+  stats
+}) => {
+  const [copying, setCopying] = useState(false);
+  const editorRef = React.useRef<HTMLDivElement>(null);
+
+  // Cálculo de palavras memoizado para performance
+  const wordCount = useMemo(() => {
+    const text = selectedItem?.script || "";
+    if (!text.trim()) return 0;
+    // Conta palavras reais, removendo espaços duplos
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }, [selectedItem?.script]);
+
+  const handleCopy = () => {
+    const text = selectedItem?.script || "";
+    if (!text) return;
+    
+    navigator.clipboard.writeText(text).then(() => {
+      setCopying(true);
+      setTimeout(() => setCopying(false), 2000);
+    });
+  };
+
+  return (
+    <div className="flex flex-col h-full min-h-[600px] lg:min-h-0 lg:overflow-hidden pb-10 lg:pb-0">
+      <div className="bg-surface-dark border border-border-dark rounded-[32px] p-5 md:p-8 shadow-2xl flex flex-col flex-1 overflow-hidden relative">
+        
+        {/* Cabeçalho do Painel */}
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 min-w-0 text-left">
+              <h2 className="text-xl md:text-2xl font-black text-white leading-tight truncate">
+                {selectedItem?.title || 'Selecione um vídeo na fila'}
+              </h2>
+            </div>
+            
+            {selectedItem?.status === 'failed' && (
+              <Button 
+                variant="danger" 
+                size="sm"
+                icon="refresh" 
+                onClick={() => onRetry(selectedItem.id)}
+              >
+                Tentar
+              </Button>
+            )}
+          </div>
+
+          {/* Status, Cópia e Contador */}
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+              <div className={`size-1.5 rounded-full ${selectedItem?.status === 'completed' ? 'bg-accent-green animate-pulse' : 'bg-primary animate-pulse'}`}></div>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                {selectedItem?.status === 'completed' ? 'Finalizado' : 'Processando'}
+              </p>
+            </div>
+
+            {isAutoSaving ? (
+              <Badge variant="success" pulse className="px-3 py-1">
+                <span className="text-[9px]">Salvando...</span>
+              </Badge>
+            ) : selectedItem?.script ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                <span className="material-symbols-outlined text-[12px] text-slate-500">cloud_done</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Salvo</span>
+              </div>
+            ) : null}
+
+            {selectedItem?.script && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                  <span className="material-symbols-outlined text-[12px] text-primary">analytics</span>
+                  <span className="text-[9px] font-black text-primary uppercase tracking-widest">{wordCount} Palavras</span>
+                </div>
+
+                <button 
+                  onClick={handleCopy}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all active:scale-95 ${
+                    copying 
+                    ? 'bg-accent-green/20 border-accent-green/40 text-accent-green' 
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[12px]">{copying ? 'check' : 'content_copy'}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest">{copying ? 'Copiado' : 'Copiar'}</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Área do Editor - Garantindo rolagem interna */}
+        <div className="flex-1 flex flex-col min-h-[450px] lg:min-h-0 overflow-hidden bg-background-dark/20 rounded-[24px] border border-border-dark/50">
+          <ScriptEditor 
+            loading={selectedItem?.status === 'generating'} 
+            localScript={selectedItem?.script || ''} 
+            onContentChange={onUpdateScript}
+            editorRef={editorRef}
+          />
+        </div>
+
+        {/* Botão de Avanço */}
+        <div className="shrink-0 mt-6">
+          <AdvanceButton 
+            isVisible={stats.completed > 0 && !isProcessing} 
+            onClick={onNext} 
+            label="Ir para Thumbnails" 
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ScriptMainPanel;

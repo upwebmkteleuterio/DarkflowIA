@@ -5,10 +5,9 @@ import { useScriptQueue } from '../hooks/useScriptQueue';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import ScriptEditor from '../components/Script/ScriptEditor';
 import ScriptConfigPanel from '../components/Script/ScriptConfigPanel';
 import SidebarItemList from '../components/Project/SidebarItemList';
-import AdvanceButton from '../components/ui/AdvanceButton';
+import ScriptMainPanel from '../components/Script/ScriptMainPanel';
 
 interface ScriptProps {
   project: Project;
@@ -80,10 +79,11 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto px-6 py-8 animate-in fade-in duration-500 h-full overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 h-full items-start overflow-hidden">
+    <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 md:py-8 h-full overflow-y-auto lg:overflow-hidden animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8 items-start lg:h-full lg:overflow-hidden">
         
-        <div className="h-full flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-1 pb-10">
+        {/* Lado Esquerdo: Configurações e Lista (No mobile ficam no topo) */}
+        <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar lg:pr-1 pb-4 lg:pb-10">
           <ScriptConfigPanel 
             project={project} 
             onUpdateGlobal={updateGlobal} 
@@ -105,62 +105,22 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
                 onClick={handleStartBatch}
                 disabled={isStartDisabled}
               >
-                {isProcessing ? 'Processando Lote...' : 'Gerar Roteiros'}
+                {isProcessing ? 'Processando...' : 'Gerar Roteiros'}
               </Button>
             }
           />
         </div>
 
-        <div className="h-full flex flex-col overflow-hidden">
-          <div className="bg-surface-dark border border-border-dark rounded-[32px] p-8 shadow-2xl flex flex-col flex-1 overflow-hidden relative">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-                <div className="flex-1 min-w-0">
-                   <h2 className="text-xl font-black text-white leading-tight truncate">{selectedItem?.title || 'Selecione um vídeo'}</h2>
-                   <div className="flex items-center gap-3 mt-1">
-                      <div className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-primary text-xs">info</span>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-                          {selectedItem?.status === 'completed' ? 'Conteúdo Finalizado' : 'Aguardando Geração da IA'}
-                        </p>
-                      </div>
-                      {isAutoSaving && (
-                        <Badge variant="success" pulse className="px-2 py-0.5 animate-pulse">
-                           <span className="text-[8px]">Salvando...</span>
-                        </Badge>
-                      )}
-                      {!isAutoSaving && selectedItem?.script && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                           <span className="material-symbols-outlined text-[10px] text-slate-500">cloud_done</span>
-                           <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Salvo</span>
-                        </div>
-                      )}
-                   </div>
-                </div>
-                
-                {selectedItem?.status === 'failed' && (
-                   <Button variant="danger" icon="refresh" onClick={() => handleRetry(selectedItemId)}>Tentar Novamente</Button>
-                )}
-             </div>
-
-             <div className="flex-1 overflow-hidden">
-                <ScriptEditor 
-                  loading={selectedItem?.status === 'generating'} 
-                  localScript={selectedItem?.script || ''} 
-                  copying={false}
-                  onCopy={() => navigator.clipboard.writeText(selectedItem?.script || '')}
-                  onExecCommand={(cmd) => document.execCommand(cmd)}
-                  onContentChange={updateItemScript}
-                  editorRef={React.createRef()}
-                />
-             </div>
-
-             <AdvanceButton 
-               isVisible={stats.completed > 0} 
-               onClick={onNext} 
-               label="Ir para Thumbnails" 
-             />
-          </div>
-        </div>
+        {/* Lado Direito: Editor Principal (No mobile rola para baixo para ver) */}
+        <ScriptMainPanel 
+          selectedItem={selectedItem}
+          isAutoSaving={isAutoSaving}
+          isProcessing={isProcessing}
+          onUpdateScript={updateItemScript}
+          onRetry={handleRetry}
+          onNext={onNext}
+          stats={stats}
+        />
       </div>
     </div>
   );
