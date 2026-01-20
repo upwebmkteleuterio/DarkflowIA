@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Button from '../ui/Button';
 
 interface ScriptEditorProps {
@@ -21,6 +21,15 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   onExecCommand,
   onContentChange 
 }) => {
+  
+  // SINCRONIZAÇÃO DE CONTEÚDO EDITÁVEL
+  // Isso resolve o bug onde o roteiro gera mas não aparece na tela
+  useEffect(() => {
+    if (editorRef.current && localScript !== editorRef.current.innerText) {
+      editorRef.current.innerText = localScript;
+    }
+  }, [localScript, loading]);
+
   return (
     <div className="bg-surface-dark border border-border-dark rounded-3xl shadow-2xl flex-1 flex flex-col mt-8 relative overflow-hidden">
       {/* Toolbar */}

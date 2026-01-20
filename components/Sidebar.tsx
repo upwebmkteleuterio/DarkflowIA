@@ -32,6 +32,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("[SIDEBAR] Solicitando logout...");
+    await signOut();
+  };
+
   const SidebarContent = (isMobile: boolean) => (
     <div className={`flex flex-col justify-between h-full bg-surface-dark border-r border-border-dark transition-all duration-300 relative ${isMobile ? 'w-72' : (isCollapsed ? 'w-20' : 'w-64')}`}>
       <div className="flex flex-col gap-8 p-4 md:p-6">
@@ -71,7 +78,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* SALDOS SEGMENTADOS */}
         <div className={`p-4 md:p-6 flex flex-col gap-3 border-t border-border-dark bg-background-dark/30 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
           {(!isCollapsed || isMobile) ? (
             <div className="space-y-3">
@@ -112,18 +118,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         <div className={`p-4 md:p-6 border-t border-border-dark ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
            {(!isCollapsed || isMobile) ? (
              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex items-center gap-3 overflow-hidden flex-1">
                    <div className="size-8 rounded-full bg-slate-800 flex items-center justify-center text-primary font-black text-xs flex-shrink-0 border border-border-dark">
                       {(profile?.display_name || user?.email)?.charAt(0).toUpperCase()}
                    </div>
-                   <div className="flex flex-col overflow-hidden">
+                   <div className="flex flex-col overflow-hidden flex-1">
                       <p className="text-[10px] text-white font-black truncate leading-tight">{profile?.display_name || user?.email}</p>
-                      <button onClick={signOut} className="text-left text-[9px] text-red-400 font-bold hover:underline uppercase tracking-tighter">Sair da Conta</button>
+                      <button 
+                        onClick={handleLogout} 
+                        className="text-left text-[9px] text-red-400 font-bold hover:underline uppercase tracking-tighter"
+                      >
+                        Sair da Conta
+                      </button>
                    </div>
                 </div>
              </div>
            ) : (
-             <button onClick={signOut} className="size-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+             <button 
+              onClick={handleLogout} 
+              className="size-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+              title="Sair"
+             >
                 <span className="material-symbols-outlined text-lg">logout</span>
              </button>
            )}
@@ -134,8 +149,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      {/* Header Mobile - Barra Superior Fluída */}
-      <div className="lg:hidden w-full h-16 bg-surface-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0 z-[40]">
+      {/* Navbar Mobile fixa no topo */}
+      <div className="lg:hidden w-full h-16 bg-surface-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0 z-[50] relative">
         <div className="flex items-center gap-3">
           <div className="bg-primary size-9 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
             <span className="material-symbols-outlined text-white text-xl">rocket_launch</span>
@@ -150,18 +165,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         </button>
       </div>
 
-      {/* Desktop Sidebar - Lateral Fixa */}
-      <aside className={`hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-visible transition-all duration-300 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+      <aside className={`hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-visible transition-all duration-300 z-[60] ${isCollapsed ? 'w-20' : 'w-64'}`}>
         {SidebarContent(false)}
       </aside>
 
-      {/* Mobile Drawer - Overlay */}
-      <div className={`fixed inset-0 z-[100] lg:hidden pointer-events-none ${isMobileMenuOpen ? 'pointer-events-auto' : ''}`}>
-        <div className={`absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeMenu} />
-        <div className={`absolute top-0 left-0 h-full transition-transform duration-500 shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          {SidebarContent(true)}
+      {/* Overlay mobile melhorado com Z-index máximo */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[100] lg:hidden flex">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500" onClick={closeMenu} />
+          <div className="relative h-full animate-in slide-in-from-left duration-300 shadow-2xl">
+            {SidebarContent(true)}
+          </div>
+          <button 
+            onClick={closeMenu}
+            className="absolute top-4 right-4 size-10 flex items-center justify-center bg-white/10 rounded-full text-white backdrop-blur-md"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
         </div>
-      </div>
+      )}
     </>
   );
 };

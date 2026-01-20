@@ -31,19 +31,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*, plans(*)')
-      .eq('id', userId)
-      .single();
-    
-    if (!error && data) {
-      setProfile({
-        ...data,
-        // Garante que se o plano não trouxer os limites, usamos padrões seguros
-        minutes_per_credit: data.plans?.minutes_per_credit || 30,
-        max_duration_limit: data.plans?.max_duration_limit || 60
-      } as any);
+    try {
+      console.log("[AUTH] Buscando perfil para ID:", userId);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, plans(*)')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.warn("[AUTH] Perfil não encontrado ou erro:", error.message);
+        // CRITICAL: Mesmo com erro, encerramos o loading para permitir o uso do app
+        setLoading(false);
+      } else if (data) {
+        console.log("[AUTH] Perfil carregado com sucesso.");
+        setProfile({
+          ...data,
+          minutes_per_credit: data.plans?.minutes_per_credit || 30,
+          max_duration_limit: data.plans?.max_duration_limit || 60
+        } as any);
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("[AUTH] Erro catastrófico ao buscar perfil:", e);
+      setLoading(false);
     }
   };
 
@@ -53,35 +64,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+      try {
+        console.log("[AUTH] Inicializando...");
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          await fetchProfile(currentSession.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("[AUTH] Erro ao inicializar:", e);
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("[AUTH] Mudança de estado detectada:", event);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
       
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+      if (newSession?.user) {
+        await fetchProfile(newSession.user.id);
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    console.log("[AUTH] Realizando logout forçado...");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("[AUTH] Erro no signOut:", e);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+    // Força recarregamento total para limpar estados pendentes
+    window.location.href = '/'; 
   };
 
   return (

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 
 interface EnergyBeamProps {
@@ -29,21 +30,29 @@ const EnergyBeam: React.FC<EnergyBeamProps> = ({
             script.onload = () => {
                 scriptLoadedRef.current = true;
                 if (window.UnicornStudio && containerRef.current) {
-                    console.log('Unicorn Studio loaded, initializing project...');
                     window.UnicornStudio.init();
                 }
             };
 
             document.head.appendChild(script);
-
-            return () => {
-                if (script.parentNode) {
-                    script.parentNode.removeChild(script);
-                }
-            };
         };
 
         loadScript();
+
+        // CLEANUP: Garante que a animação pare e os recursos sejam liberados ao desmontar (pós-login)
+        return () => {
+            if (window.UnicornStudio && typeof window.UnicornStudio.destroy === 'function') {
+                try {
+                    window.UnicornStudio.destroy();
+                } catch (e) {
+                    console.log('Limpando recursos de animação...');
+                }
+            }
+            // Remove o script para limpar a memória global
+            const scripts = document.querySelectorAll('script[src*="unicornstudio"]');
+            scripts.forEach(s => s.remove());
+            scriptLoadedRef.current = false;
+        };
     }, [projectId]);
 
     return (
@@ -53,10 +62,12 @@ const EnergyBeam: React.FC<EnergyBeamProps> = ({
                 data-us-project={projectId}
                 className="w-full h-full"
                 style={{ 
-                    filter: 'hue-rotate(235deg) brightness(1.2) saturate(1.5)',
-                    opacity: 0.9
+                    filter: 'hue-rotate(245deg) brightness(1.2) saturate(1.4)',
+                    opacity: 0.85
                 }}
             />
+            {/* Overlay para suavizar a transição de cores e garantir o tom lilás */}
+            <div className="absolute inset-0 bg-primary/5 pointer-events-none mix-blend-overlay"></div>
         </div>
     );
 };

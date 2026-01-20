@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Project, ScriptItem } from '../types';
 import { generateScript } from '../services/geminiService';
@@ -7,53 +6,41 @@ import { useAuth } from '../context/AuthContext';
 
 export const useScriptQueue = (project: Project, onUpdate: (updated: Project) => void) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ScriptItem | null>(null);
   const { user, profile, refreshProfile } = useAuth();
   
   const projectRef = useRef(project);
-  
-  useEffect(() => {
-    projectRef.current = project;
-  }, [project]);
+  useEffect(() => { projectRef.current = project; }, [project]);
 
   const updateItemStatus = useCallback((itemId: string, updates: Partial<ScriptItem>) => {
     const currentItems = projectRef.current.items || [];
     const updatedItems = currentItems.map(item => 
       item.id === itemId ? { ...item, ...updates } : item
     );
-    
     onUpdate({ ...projectRef.current, items: updatedItems });
   }, [onUpdate]);
 
-  const processNextPending = async () => {
-    const currentItems = projectRef.current.items || [];
-    const pendingItem = currentItems.find(item => item.status === 'pending');
-    
-    if (!pendingItem || !user) {
-      setIsProcessing(false);
-      return;
-    }
+  const processItem = async (itemId: string) => {
+    const item = projectRef.current.items.find(i => i.id === itemId);
+    if (!item || !user) return;
 
-    // Cálculo de custo baseado no plano do perfil
+    console.log(`[SCRIPT-QUEUE] Processando: ${item.title}`);
+
     const minutesPerCredit = (profile as any)?.minutes_per_credit || 30;
     const duration = projectRef.current.globalDuration;
     const creditsToDeduct = Math.ceil(duration / minutesPerCredit);
 
-    // Verificação preventiva de saldo antes de chamar a IA
     if ((profile?.text_credits ?? 0) < creditsToDeduct) {
-      alert("Saldo de créditos de texto insuficiente.");
-      setIsProcessing(false);
+      alert("Saldo insuficiente para gerar roteiro.");
       return;
     }
 
-    updateItemStatus(pendingItem.id, { status: 'generating', error: undefined });
+    updateItemStatus(itemId, { status: 'generating' });
 
     try {
-      // 1. CHAMA A IA
       const script = await generateScript(
-        pendingItem.title,
+        item.title,
         projectRef.current.niche,
-        projectRef.current.globalDuration,
+        duration,
         projectRef.current.scriptMode,
         projectRef.current.globalTone,
         projectRef.current.globalRetention,
@@ -61,76 +48,49 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
         projectRef.current.baseTheme
       );
 
-      if (!script) throw new Error("A IA retornou um roteiro vazio.");
+      console.log(`[SCRIPT-QUEUE] Roteiro gerado para ${item.id}. Deduzindo ${creditsToDeduct} créditos.`);
 
-      // 2. TENTA DEDUZIR CRÉDITOS VIA RPC (SEGURANÇA ATÔMICA)
       const { data: success, error: rpcError } = await supabase.rpc('deduct_text_credits', {
         user_id: user.id,
         amount: creditsToDeduct
       });
 
-      if (rpcError || !success) {
-        throw new Error("Falha ao processar pagamento de créditos. Operação cancelada.");
-      }
+      if (rpcError || !success) throw new Error("Falha no pagamento de créditos.");
 
-      // 3. SALVA O RESULTADO
-      updateItemStatus(pendingItem.id, { 
-        status: 'completed', 
-        script: script || '' 
-      });
+      await supabase.from('script_items').update({ script, status: 'completed' }).eq('id', itemId);
 
-      // Atualiza saldo na UI
+      updateItemStatus(itemId, { status: 'completed', script });
       await refreshProfile();
+      console.log(`[SCRIPT-QUEUE] Concluído com sucesso: ${item.id}`);
 
     } catch (error: any) {
-      console.error("[QUEUE] Erro ao processar item:", error);
-      updateItemStatus(pendingItem.id, { 
-        status: 'failed', 
-        error: error.message || 'Erro na produção' 
-      });
-    } finally {
-      setTimeout(processNextPending, 1500);
+      console.error(`[SCRIPT-QUEUE] FALHA em ${item.id}:`, error);
+      updateItemStatus(itemId, { status: 'failed', error: error.message });
     }
   };
 
-  const handleStartBatch = () => {
+  const handleStartBatch = async () => {
     if (isProcessing) return;
-    const currentItems = projectRef.current.items || [];
-    const hasPending = currentItems.some(i => i.status === 'pending');
-    if (!hasPending) return;
+    const pending = projectRef.current.items.filter(i => i.status === 'pending');
+    if (pending.length === 0) return;
 
     setIsProcessing(true);
-    processNextPending();
-  };
-
-  const handleRetry = (itemId: string) => {
-    updateItemStatus(itemId, { status: 'pending', error: undefined });
-    if (!isProcessing) {
-      setIsProcessing(true);
-      setTimeout(processNextPending, 500);
+    console.log(`[SCRIPT-QUEUE] Iniciando lote de ${pending.length} itens.`);
+    for (const item of pending) {
+      await processItem(item.id);
+      await new Promise(r => setTimeout(r, 1000));
     }
+    setIsProcessing(false);
   };
-
-  const handleSaveItem = (itemId: string, newScript: string) => {
-    updateItemStatus(itemId, { script: newScript });
-    setSelectedItem(null);
-  };
-
-  const items = project.items || [];
 
   return {
     isProcessing,
-    selectedItem,
-    setSelectedItem,
     handleStartBatch,
-    handleRetry,
-    handleSaveItem,
+    handleRetry: processItem,
     stats: {
-      total: items.length,
-      completed: items.filter(i => i.status === 'completed').length,
-      pending: items.filter(i => i.status === 'pending').length,
-      failed: items.filter(i => i.status === 'failed').length,
-      generating: items.filter(i => i.status === 'generating').length,
+      total: project.items.length,
+      completed: project.items.filter(i => i.status === 'completed').length,
+      pending: project.items.filter(i => i.status === 'pending').length,
     }
   };
 };

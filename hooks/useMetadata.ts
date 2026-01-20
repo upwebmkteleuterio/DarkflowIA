@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { generateMetadata } from '../services/geminiService';
 import { Project, ScriptItem } from '../types';
+import { supabase } from '../lib/supabase';
 
 export const useMetadata = (project: Project, onUpdate: (updated: Project) => void) => {
   const [loading, setLoading] = useState(false);
@@ -14,11 +15,18 @@ export const useMetadata = (project: Project, onUpdate: (updated: Project) => vo
   const projectRef = useRef(project);
   projectRef.current = project;
 
-  const updateItemMetadata = useCallback((itemId: string, description: string, chapters: string, tags: string) => {
+  const updateItemMetadata = useCallback(async (itemId: string, description: string, chapters: string, tags: string) => {
+    // Atualiza estado local
     const updatedItems = projectRef.current.items.map(item => 
       item.id === itemId ? { ...item, description, chapters, tags } : item
     );
     onUpdate({ ...projectRef.current, items: updatedItems });
+
+    // Persiste no banco de dados
+    await supabase
+      .from('script_items')
+      .update({ description, chapters, tags })
+      .eq('id', itemId);
   }, [onUpdate]);
 
   const handleGenerateSingle = async (itemId: string) => {
@@ -28,7 +36,7 @@ export const useMetadata = (project: Project, onUpdate: (updated: Project) => vo
     setLoading(true);
     try {
       const data = await generateMetadata(item.title, item.script);
-      updateItemMetadata(itemId, data.description, data.chapters, data.tags);
+      await updateItemMetadata(itemId, data.description, data.chapters, data.tags);
     } catch (error) {
       console.error("Erro ao gerar metadados:", error);
     } finally {
@@ -44,7 +52,7 @@ export const useMetadata = (project: Project, onUpdate: (updated: Project) => vo
     for (const item of pendingItems) {
       try {
         const data = await generateMetadata(item.title, item.script);
-        updateItemMetadata(item.id, data.description, data.chapters, data.tags);
+        await updateItemMetadata(item.id, data.description, data.chapters, data.tags);
       } catch (err) {
         console.error(`Erro no item ${item.title}:`, err);
       }

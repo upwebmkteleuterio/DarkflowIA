@@ -1,38 +1,83 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Project, ScriptItem } from '../types';
+import { supabase } from '../lib/supabase';
 
 export const useIdeation = (project: Project, onUpdate: (updated: Project) => void) => {
   const [loading, setLoading] = useState(false);
-  const [titlesInput, setTitlesInput] = useState(project.items.map(item => item.title).join('\n'));
+  const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [titlesInput, setTitlesInput] = useState(project.items?.map(item => item.title).join('\n') || '');
   const [formData, setFormData] = useState({
     niche: project.niche || '',
     baseTheme: project.baseTheme || '',
     audience: project.targetAudience || '',
   });
 
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sincroniza estado local se o projeto mudar (ex: ao carregar do banco)
+  useEffect(() => {
+    setFormData({
+      niche: project.niche || '',
+      baseTheme: project.baseTheme || '',
+      audience: project.targetAudience || '',
+    });
+    setTitlesInput(project.items?.map(item => item.title).join('\n') || '');
+  }, [project.id]);
+
+  const persistProjectData = useCallback(async (updatedFields: any) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    setIsSaved(false);
+    
+    saveTimeoutRef.current = setTimeout(async () => {
+      console.log("[IDEATION] Persistindo dados no banco...", updatedFields);
+      const { error: dbError } = await supabase
+        .from('projects')
+        .update({
+          niche: updatedFields.niche,
+          base_theme: updatedFields.baseTheme,
+          target_audience: updatedFields.audience
+        })
+        .eq('id', project.id);
+
+      if (dbError) {
+        console.error("[IDEATION] Falha ao persistir:", dbError.message);
+        setError("Erro ao salvar automaticamente: " + dbError.message);
+      } else {
+        console.log("[IDEATION] Dados persistidos com sucesso.");
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 2000);
+      }
+    }, 800);
+  }, [project.id]);
+
   const updateField = useCallback((field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  }, []);
+    setError(null);
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    onUpdate({ ...project, ...newFormData });
+    persistProjectData(newFormData);
+  }, [formData, onUpdate, project, persistProjectData]);
 
   const handleProcessBatch = async (onNext: () => void) => {
-    if (!formData.niche || !formData.baseTheme || !titlesInput.trim()) {
-      alert("Por favor, preencha o nicho, o tema e cole ao menos um título.");
+    setError(null);
+    console.log("[IDEATION] Iniciando salvamento de itens em lote...");
+    
+    if (!formData.niche?.trim() || !formData.baseTheme?.trim() || !titlesInput.trim()) {
+      setError("Por favor, preencha todos os campos obrigatórios antes de avançar.");
       return;
     }
 
     setLoading(true);
     
-    // Transformar a string de títulos em array de ScriptItem
     const titlesArray = titlesInput
       .split('\n')
       .map(t => t.trim())
       .filter(t => t.length > 0);
 
     const newItems: ScriptItem[] = titlesArray.map((title, index) => {
-      // Tentar manter o script se o título for idêntico ao que já existia
-      const existing = project.items.find(item => item.title === title);
-      
+      const existing = project.items?.find(item => item.title === title);
       return existing || {
         id: `item-${Date.now()}-${index}`,
         title,
@@ -42,20 +87,37 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
       };
     });
 
-    onUpdate({
-      ...project,
-      ...formData,
-      items: newItems,
-      // Nome do projeto será o primeiro título se estiver vazio
-      name: project.name === 'Novo Projeto de Vídeo' ? (newItems[0]?.title || project.name) : project.name
-    });
+    const dbItems = newItems.map(item => ({
+      id: item.id,
+      project_id: project.id,
+      title: item.title,
+      script: item.script || "",
+      status: item.status || "pending"
+    }));
 
-    setLoading(false);
-    onNext();
+    console.log("[IDEATION] Payload de itens para Upsert:", dbItems);
+
+    const { error: dbError } = await supabase.from('script_items').upsert(dbItems);
+
+    if (dbError) {
+      console.error("[IDEATION] ERRO CRÍTICO NO BANCO:", dbError);
+      setError(`Erro no banco: ${dbError.message}. Verifique se as colunas ID aceitam TEXT.`);
+      setLoading(false);
+    } else {
+      console.log("[IDEATION] Itens salvos com sucesso!");
+      onUpdate({
+        ...project,
+        ...formData,
+        items: newItems,
+      });
+      onNext();
+    }
   };
 
   return {
     loading,
+    error,
+    isSaved,
     formData,
     titlesInput,
     setTitlesInput,

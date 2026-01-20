@@ -3,9 +3,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrendHunter } from '../hooks/useTrendHunter';
 import { Trend, Project } from '../types';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 const TrendHunter: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     loading,
     theme,
@@ -20,31 +23,30 @@ const TrendHunter: React.FC = () => {
     setShowSuggestions
   } = useTrendHunter();
 
-  const handleStartProject = (trend: Trend) => {
-    const newId = Date.now().toString();
-    const projectsStr = localStorage.getItem('darkflow_ai_projects') || '[]';
-    const projects = JSON.parse(projectsStr);
+  const handleStartProject = async (trend: Trend) => {
+    if (!user) return;
     
-    // Added missing required property 'scriptMode' and 'winnerTemplate' to match Project type
-    const newProject: Project = {
+    const newId = Date.now().toString();
+    const newProject = {
       id: newId,
+      user_id: user.id,
       name: trend.topic,
       niche: trend.topic,
-      baseTheme: trend.reason,
-      createdAt: new Date().toISOString(),
-      items: [], 
-      script: '',
-      thumbnails: [],
-      targetAudience: 'Público interessado em ' + trend.topic,
-      globalTone: 'Misterioso e Sombrio',
-      globalRetention: 'AIDA',
-      globalDuration: 12,
-      scriptMode: 'manual',
-      winnerTemplate: ''
+      base_theme: trend.reason,
+      target_audience: 'Público interessado em ' + trend.topic,
+      global_tone: 'Misterioso e Sombrio',
+      global_retention: 'AIDA',
+      global_duration: 12,
+      script_mode: 'manual'
     };
 
-    localStorage.setItem('darkflow_ai_projects', JSON.stringify([newProject, ...projects]));
-    navigate(`/projects/${newId}`);
+    const { error } = await supabase.from('projects').insert(newProject);
+
+    if (!error) {
+      navigate(`/projects/${newId}`);
+    } else {
+      alert("Erro ao criar projeto no banco de dados.");
+    }
   };
 
   return (
@@ -68,7 +70,6 @@ const TrendHunter: React.FC = () => {
         )}
       </div>
 
-      {/* Barra de Busca de Tendências */}
       <div className="bg-surface-dark border border-border-dark p-6 rounded-3xl shadow-2xl mb-12 flex flex-col md:flex-row gap-4">
         <div className="flex-1 space-y-2">
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tema ou Nicho</label>
@@ -123,7 +124,6 @@ const TrendHunter: React.FC = () => {
         </button>
       </div>
 
-      {/* Grid de Resultados */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (

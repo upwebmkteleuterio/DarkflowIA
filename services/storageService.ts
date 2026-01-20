@@ -39,3 +39,26 @@ export const uploadThumbnail = async (userId: string, itemId: string, base64Data
 
   return publicUrl;
 };
+
+// Fix: Export uploadAudio function to support saving generated voiceovers to Supabase Storage as used in useVoiceover hook
+export const uploadAudio = async (userId: string, itemId: string, blob: Blob): Promise<string> => {
+  const fileName = `${userId}/${itemId}/${Date.now()}.pcm`;
+
+  const { data, error } = await supabase.storage
+    .from('voiceovers')
+    .upload(fileName, blob, {
+      contentType: 'audio/pcm',
+      upsert: true
+    });
+
+  if (error) {
+    console.error('[STORAGE] Erro no upload de áudio:', error);
+    throw error;
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('voiceovers')
+    .getPublicUrl(data.path);
+
+  return publicUrl;
+};

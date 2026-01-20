@@ -1,49 +1,27 @@
+# Mirror do Banco de Dados (Supabase) - Versão Final (Sem Áudio)
+*Referência técnica atualizada em Março/2025.*
 
-# Mirror do Banco de Dados (Supabase)
-*Este arquivo serve como referência técnica para a estrutura atual do banco de dados.*
-
-## Tabela: `public.plans`
-| Coluna | Tipo | Restrição | Padrão | Descrição |
-| :--- | :--- | :--- | :--- | :--- |
-| id | UUID | PRIMARY KEY | - | - |
-| name | TEXT | - | - | - |
-| price | DECIMAL | - | 0 | - |
-| text_credits | INTEGER | - | 50 | Créditos mensais de roteiro |
-| image_credits | INTEGER | - | 20 | Créditos mensais de imagem |
-| minutes_per_credit | INTEGER | - | 30 | Base de cálculo para consumo |
-| max_duration_limit | INTEGER | - | 60 | Limite do slider no front |
-| type | TEXT | - | 'pro' | - |
-
-## Tabela: `public.profiles`
-| Coluna | Tipo | Restrição | Padrão | Descrição |
-| :--- | :--- | :--- | :--- | :--- |
-| id | UUID | PK, FK | - | - |
-| text_credits | INTEGER | - | 50 | Saldo atual de roteiros |
-| image_credits | INTEGER | - | 20 | Saldo atual de imagens |
-| plan_id | UUID | FK (plans.id) | - | ID do plano assinado |
-| role | TEXT | - | 'free' | - |
-| subscription_status | TEXT | - | 'active' | - |
+## Tabela: `public.projects`
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| id | TEXT | PK |
+| user_id | UUID | FK |
+| name | TEXT | Nome do projeto |
+| niche | TEXT | Nicho |
+| base_theme | TEXT | Tema base |
+| target_audience | TEXT | Público Alvo (Salvamento automático fixado) |
+| global_duration | INTEGER | Duração em minutos |
+| global_tone | TEXT | Tom de voz |
+| global_retention | TEXT | Estrutura de retenção |
+| script_mode | TEXT | Modo: auto, manual, winner |
+| winner_template | TEXT | Template para modo vencedor |
+| created_at | TIMESTAMPTZ | Data |
 
 ## Tabela: `public.script_items`
-| Coluna | Tipo | Restrição | Padrão | Descrição |
-| :--- | :--- | :--- | :--- | :--- |
-| id | UUID | PRIMARY KEY | - | - |
-| project_id | UUID | FK | - | - |
-| title | TEXT | - | - | - |
-| script | TEXT | - | - | - |
-| thumbnails | TEXT[] | - | '{}' | Lista de URLs do Supabase Storage |
-| status | TEXT | - | 'pending' | Status do Roteiro |
-| thumb_status | TEXT | - | 'pending' | Status da Imagem |
-
-## Storage (Buckets)
-### Bucket: `thumbnails`
-- **ID**: `thumbnails`
-- **Acesso**: Público (Public)
-- **Objetivo**: Armazenar as imagens geradas para as capas dos vídeos.
-
-## RPC (Remote Procedure Calls)
-### `deduct_text_credits(user_id, amount)`
-- **Objetivo**: Deduzir créditos de texto de forma atômica.
-
-### `deduct_image_credits(user_id, amount)`
-- **Objetivo**: Deduzir créditos de imagem.
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| id | TEXT | PK |
+| project_id | TEXT | FK |
+| title | TEXT | Título |
+| script | TEXT | Conteúdo do roteiro |
+| status | TEXT | pending, completed, etc |

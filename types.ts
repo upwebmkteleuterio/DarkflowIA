@@ -7,7 +7,7 @@ export enum ProjectStep {
   EXPORT = 'export'
 }
 
-export type ScriptMode = 'manual' | 'winner' | 'auto';
+export type ScriptMode = 'auto' | 'manual' | 'winner';
 
 export interface ScriptItem {
   id: string;
@@ -17,15 +17,14 @@ export interface ScriptItem {
   thumbStatus?: 'pending' | 'generating' | 'completed' | 'failed';
   thumbPrompt?: string;
   thumbMode?: 'auto' | 'manual';
-  // Fix: Adicionando propriedades de locução para suportar a funcionalidade de Voiceover e corrigir erros de tipo no hook useVoiceover
-  voiceStatus?: 'pending' | 'generating' | 'completed' | 'failed';
-  voiceName?: string;
-  audioUrl?: string;
   error?: string;
   thumbnails: string[];
   description?: string;
   chapters?: string;
   tags?: string;
+  voiceStatus?: 'pending' | 'generating' | 'completed' | 'failed';
+  voiceName?: string;
+  audioUrl?: string;
 }
 
 export interface Project {
@@ -42,10 +41,11 @@ export interface Project {
   thumbnails: string[];
   scriptMode: ScriptMode;
   winnerTemplate?: string;
-  script?: string;
-  scriptPrompt?: string;
   positiveInstructions?: string;
   negativeInstructions?: string;
+  // Campos adicionados para suportar o hook useScript legado
+  script?: string;
+  scriptPrompt?: string;
 }
 
 export interface TitleIdea {

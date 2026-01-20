@@ -90,7 +90,6 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
           />
         ))}
 
-        {/* Empty State / Add New */}
         {filteredProjects.length === 0 && searchQuery && (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 bg-surface-dark/10 rounded-3xl border-2 border-dashed border-border-dark">
             <span className="material-symbols-outlined text-6xl mb-4 opacity-10">search_off</span>
