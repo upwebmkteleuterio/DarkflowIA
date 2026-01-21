@@ -1,12 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import EnergyBeam from '../components/ui/energy-beam';
-
-const SAFETY_TIMEOUT_MS = 10000; // 10 segundos para desistir
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,35 +12,12 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loadingTime, setLoadingTime] = useState(0);
   const navigate = useNavigate();
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (loading) {
-      const interval = setInterval(() => {
-        setLoadingTime(prev => prev + 1000);
-      }, 1000);
-
-      timerRef.current = setTimeout(() => {
-        setLoading(false);
-        setError("O servidor demorou muito para responder. Por favor, tente novamente ou verifique sua conexão.");
-        clearInterval(interval);
-      }, SAFETY_TIMEOUT_MS);
-
-      return () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        clearInterval(interval);
-        setLoadingTime(0);
-      };
-    }
-  }, [loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setLoadingTime(0);
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -56,18 +31,13 @@ const Login: React.FC = () => {
           : authError.message);
         setLoading(false);
       } else {
+        // O onAuthStateChange no AuthContext cuidará do redirecionamento e carregamento do perfil
         navigate('/');
       }
     } catch (err) {
       setError("Ocorreu um erro inesperado. Tente novamente.");
       setLoading(false);
     }
-  };
-
-  const getLoadingMessage = () => {
-    if (loadingTime < 3000) return "Autenticando...";
-    if (loadingTime < 7000) return "Sincronizando dados seguros...";
-    return "Quase lá, o servidor está sob carga...";
   };
 
   return (
@@ -139,7 +109,7 @@ const Login: React.FC = () => {
             loading={loading}
             type="submit"
           >
-            {loading ? getLoadingMessage() : 'ENTRAR NO PAINEL'}
+            {loading ? 'AUTENTICANDO...' : 'ENTRAR NO PAINEL'}
           </Button>
 
           <p className="text-center text-xs text-slate-500 font-medium">

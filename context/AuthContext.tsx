@@ -28,41 +28,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const SAFETY_TIMEOUT_MS = 10000; // 10 segundos
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Usamos um ref para evitar múltiplas chamadas simultâneas ao perfil
+  const fetchingProfileId = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
-    // Inicia o timer de segurança para evitar trava no loading infinito
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      if (status === 'loading') {
-        console.warn("[AUTH] Timeout de segurança atingido ao carregar perfil.");
-        setStatus('unauthenticated');
-      }
-    }, SAFETY_TIMEOUT_MS);
+    // Evita buscar o mesmo perfil se já estiver em progresso
+    if (fetchingProfileId.current === userId) return;
+    fetchingProfileId.current = userId;
 
     try {
       console.log("[AUTH] Buscando perfil para ID:", userId);
       
-      // Tentativa de buscar perfil com join em planos
       const { data, error } = await supabase
         .from('profiles')
         .select('*, plans(*)')
         .eq('id', userId)
-        .maybeSingle(); // Usamos maybeSingle para evitar erro 406 se não houver registro
+        .maybeSingle();
       
       if (error) {
         console.error("[AUTH] Erro ao buscar perfil:", error.message);
-        // Se houver erro de rede ou banco, não deixamos em loading infinito
-        setStatus('unauthenticated');
+        // Se houver erro de rede, mantemos o que temos ou tentamos novamente silenciosamente
+        // Não forçamos unauthenticated aqui para não deslogar o usuário por erro de rede temporário
       } else if (data) {
-        console.log("[AUTH] Perfil carregado com sucesso.");
+        console.log("[AUTH] Perfil carregado.");
         setProfile({
           ...data,
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
@@ -70,18 +64,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } as any);
         setStatus('authenticated');
       } else {
-        // Se o usuário está no Auth mas não tem perfil (o trigger falhou ou ainda não rodou)
-        console.warn("[AUTH] Usuário logado mas registro na tabela 'profiles' não encontrado.");
+        console.warn("[AUTH] Perfil não encontrado na tabela 'profiles'.");
+        // Apenas aqui, se o usuário logou mas não tem registro no banco, mandamos pro login
         setStatus('unauthenticated');
       }
     } catch (e) {
       console.error("[AUTH] Exceção crítica ao buscar perfil:", e);
-      setStatus('unauthenticated');
     } finally {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      fetchingProfileId.current = null;
     }
   };
 
@@ -92,21 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log("[AUTH] Inicializando...");
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        console.log("[AUTH] Recuperando sessão persistida...");
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (currentSession?.user) {
+          setSession(currentSession);
+          setUser(currentSession.user);
           await fetchProfile(currentSession.user.id);
         } else {
           setStatus('unauthenticated');
         }
       } catch (e) {
-        console.error("[AUTH] Erro na inicialização:", e);
+        console.error("[AUTH] Falha na recuperação de sessão:", e);
         setStatus('unauthenticated');
       }
     };
@@ -114,14 +101,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log("[AUTH] Evento Auth:", event);
+      console.log("[AUTH] Evento detectado:", event);
       
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (newSession?.user) {
         setSession(newSession);
-        setUser(newSession?.user ?? null);
-        if (newSession?.user) {
-          // Só entramos em loading se ainda não estivermos autenticados para evitar flicker
-          setStatus('loading');
+        setUser(newSession.user);
+        if (status !== 'authenticated') {
           await fetchProfile(newSession.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
@@ -134,22 +119,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       subscription.unsubscribe();
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
   const signOut = async () => {
-    console.log("[AUTH] Saindo...");
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    console.log("[AUTH] Encerrando sessão...");
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.error("[AUTH] Erro no logout:", e);
     }
-    localStorage.clear();
-    sessionStorage.clear();
     setProfile(null);
     setUser(null);
+    setSession(null);
     setStatus('unauthenticated');
     window.location.hash = '#/login';
   };

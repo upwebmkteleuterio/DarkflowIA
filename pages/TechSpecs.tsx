@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Badge from '../components/ui/Badge';
 
@@ -57,21 +56,11 @@ const TechSpecs: React.FC = () => {
     {
       title: "Processamento de Mídia & Storage CDN",
       icon: "cloud_upload",
-      description: "Gerenciamento eficiente de ativos binários para garantir que o SaaS não fique lento com milhares de imagens e áudios.",
+      description: "Gerenciamento eficiente de ativos binários para garantir que o SaaS não fique lento com milhares de imagens.",
       details: [
         "Conversão inteligente de Base64 para Blobs reais antes do upload.",
         "Distribuição via CDN Global para carregamento instantâneo de thumbnails.",
         "Protocolo de limpeza automática de temporários não utilizados."
-      ]
-    },
-    {
-      title: "Locução Neural (TTS) & PCM Decoding",
-      icon: "settings_voice",
-      description: "Integração com modelos de Texto-para-Fala (TTS) de baixa latência para narrações humanas.",
-      details: [
-        "Suporte a múltiplas personas e tons de voz nativos da IA.",
-        "Decodificação de áudio PCM bruto para garantir alta fidelidade sonora.",
-        "Streaming de áudio para preview instantâneo no editor."
       ]
     },
     {
@@ -137,7 +126,7 @@ const TechSpecs: React.FC = () => {
          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
          <h4 className="text-primary font-black text-xs uppercase tracking-[0.4em] mb-4 relative z-10">Conclusão de Auditoria Tecnológica</h4>
          <p className="text-slate-400 text-sm leading-relaxed max-w-3xl mx-auto relative z-10">
-           O DarkFlow AI não é apenas uma interface para o Gemini. É um ecossistema complexo de micro-sincronização que garante **custo operacional mínimo** e **produtividade máxima**. A separação de responsabilidades entre o banco de dados em tempo real e os workers de IA permite que o sistema escale sem perder performance.
+           O Dark Flow é uma interface complexa de micro-sincronização que garante custo operacional mínimo e produtividade máxima. A separação de responsabilidades entre o banco de dados em tempo real e os workers de IA permite que o sistema escale sem perder performance.
          </p>
          
          <div className="mt-10 pt-10 border-t border-primary/10 grid grid-cols-2 md:grid-cols-4 gap-8 relative z-10">

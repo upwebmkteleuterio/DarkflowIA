@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -152,8 +153,6 @@ const AppContent: React.FC = () => {
     if (status === 'authenticated' && user) {
       loadProjects();
 
-      // INÍCIO DA SINCRONIA REALTIME
-      // Este canal ouve qualquer mudança na tabela script_items (onde os roteiros são salvos)
       const channel = supabase
         .channel('db-changes')
         .on(
@@ -161,7 +160,6 @@ const AppContent: React.FC = () => {
           { event: '*', schema: 'public', table: 'script_items' },
           (payload) => {
             console.log("[REALTIME] Mudança detectada no item:", payload);
-            // Ao detectar mudança, recarregamos os projetos para garantir integridade total
             loadProjects();
           }
         )
@@ -183,7 +181,6 @@ const AppContent: React.FC = () => {
         niche: updated.niche, 
         base_theme: updated.baseTheme,
         target_audience: updated.targetAudience,
-        // Fix: Changed global_duration to globalDuration to match the Project type
         global_duration: updated.globalDuration,
         global_tone: updated.globalTone,
         global_retention: updated.globalRetention,
@@ -242,7 +239,7 @@ const AppContent: React.FC = () => {
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
       {!isAuthPage && status === 'authenticated' && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative z-0">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

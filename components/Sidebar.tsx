@@ -40,8 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   };
 
   const SidebarContent = (isMobile: boolean) => (
-    <div className={`flex flex-col justify-between h-full bg-surface-dark border-r border-border-dark transition-all duration-300 relative ${isMobile ? 'w-72' : (isCollapsed ? 'w-20' : 'w-64')}`}>
-      <div className="flex flex-col gap-8 p-4 md:p-6">
+    <div className={`flex flex-col justify-between h-full bg-surface-dark border-r border-border-dark transition-all duration-300 relative overflow-y-auto custom-scrollbar ${isMobile ? 'w-72' : (isCollapsed ? 'w-20' : 'w-64')}`}>
+      <div className="flex flex-col gap-8 p-4 md:p-6 shrink-0">
         <div className={`flex items-center gap-3 transition-all ${isCollapsed && !isMobile ? 'justify-center' : ''}`}>
           <div className="bg-primary size-10 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/30">
             <span className="material-symbols-outlined text-white text-2xl">rocket_launch</span>
@@ -77,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         </nav>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 shrink-0 mt-auto">
         <div className={`p-4 md:p-6 flex flex-col gap-3 border-t border-border-dark bg-background-dark/30 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
           {(!isCollapsed || isMobile) ? (
             <div className="space-y-3">
