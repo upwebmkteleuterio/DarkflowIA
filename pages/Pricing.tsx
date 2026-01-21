@@ -38,14 +38,11 @@ const Pricing: React.FC = () => {
       setLoading(false);
     };
 
-    // Como usamos HashRouter, o Stripe retorna a query após a hash: #/plans?success=true
-    // Precisamos ler os parâmetros da location do react-router
     const searchParams = new URLSearchParams(location.search);
     
     if (searchParams.get('success') === 'true') {
       setPaymentStatus('success');
-      refreshProfile(); // Atualiza créditos na UI
-      // Limpa a URL para não ficar mostrando a mensagem de sucesso no F5
+      refreshProfile();
       window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
     }
     
@@ -74,6 +71,8 @@ const Pricing: React.FC = () => {
     }
 
     setProcessingPayment(true);
+    console.log(`[STRIPE] Iniciando checkout para o plano: ${selectedPlanForCheckout.name}`);
+
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: { 
@@ -83,14 +82,19 @@ const Pricing: React.FC = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[STRIPE ERROR OBJECT]", error);
+        throw error;
+      }
+
       if (data?.url) {
         window.location.href = data.url;
       } else {
         throw new Error("Não foi possível gerar o link de pagamento.");
       }
     } catch (err: any) {
-      alert("Erro ao iniciar checkout: " + err.message);
+      console.error("[STRIPE ERROR]", err);
+      alert("Erro ao iniciar checkout: " + (err.message || "Falha na comunicação com o servidor. Verifique os logs da Function no Supabase."));
     } finally {
       setProcessingPayment(false);
     }
@@ -104,7 +108,6 @@ const Pricing: React.FC = () => {
   return (
     <div className="max-w-[1200px] mx-auto w-full px-6 py-10 animate-in fade-in duration-700">
       
-      {/* Mensagens de Retorno do Stripe */}
       {paymentStatus === 'success' && (
         <div className="mb-10 p-6 bg-accent-green/10 border border-accent-green/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
            <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black">
@@ -218,7 +221,6 @@ const Pricing: React.FC = () => {
         </div>
       )}
 
-      {/* Seção Informativa de Pagamento Manual / PIX */}
       <div className="bg-surface-dark border border-border-dark p-10 rounded-[48px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl border-dashed">
          <div className="flex items-center gap-6">
             <div className="bg-primary/20 size-16 rounded-full flex items-center justify-center text-primary border border-primary/20">
@@ -234,7 +236,6 @@ const Pricing: React.FC = () => {
          </button>
       </div>
 
-      {/* Modal de Pagamento */}
       {selectedPlanForCheckout && (
         <PaymentModal 
           plan={selectedPlanForCheckout}
