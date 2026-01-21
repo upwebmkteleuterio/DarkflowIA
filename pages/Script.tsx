@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, ScriptItem } from '../types';
 import { useScriptQueue } from '../hooks/useScriptQueue';
+import { useBatch } from '../context/BatchContext';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -19,11 +20,17 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
   const {
     isProcessing,
     handleStartBatch,
+    confirmBatch,
+    showConfirm,
+    setShowConfirm,
+    totalCost,
+    pendingCount,
     handleRetry,
     stats
   } = useScriptQueue(project, onUpdate);
+  
+  const { getTaskStatus } = useBatch();
 
-  // Segurança: Garante que items exista antes de acessar a primeira posição
   const [selectedItemId, setSelectedItemId] = useState((project.items || [])[0]?.id || '');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const itemsArray = project.items || [];
@@ -73,6 +80,9 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
   );
 
   const renderStatusBadge = (item: ScriptItem) => {
+    const batchTask = getTaskStatus(item.id, 'script');
+    if (batchTask?.status === 'processing') return <Badge variant="primary" pulse>GERANDO...</Badge>;
+    if (batchTask?.status === 'pending') return <Badge variant="neutral" pulse>NA FILA...</Badge>;
     if (item.status === 'completed') return <Badge variant="success" pulse>ROTEIRO PRONTO</Badge>;
     if (item.status === 'generating') return <Badge variant="primary" pulse>GERANDO...</Badge>;
     if (item.status === 'failed') return <Badge variant="error">FALHA</Badge>;
@@ -121,6 +131,40 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
           stats={stats}
         />
       </div>
+
+      {showConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-surface-dark border border-border-dark w-full max-w-md p-8 rounded-[32px] shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="text-center space-y-2">
+              <div className="size-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20">
+                <span className="material-symbols-outlined text-3xl">payments</span>
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Confirmar Investimento</h3>
+              <p className="text-slate-400 text-xs">Você está prestes a iniciar a produção em massa.</p>
+            </div>
+
+            <div className="bg-background-dark/50 border border-border-dark rounded-2xl p-6 space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold uppercase tracking-widest">Vídeos Selecionados</span>
+                <span className="text-white font-black">{pendingCount} itens</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold uppercase tracking-widest">Custo do Lote</span>
+                <span className="text-primary font-black">{totalCost} créditos</span>
+              </div>
+              <div className="h-px bg-border-dark"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-400 italic">O motor rodará em segundo plano.</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button size="lg" onClick={confirmBatch}>Iniciar Geração</Button>
+              <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancelar</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

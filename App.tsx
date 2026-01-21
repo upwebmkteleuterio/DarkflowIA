@@ -1,7 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { BatchProvider } from './context/BatchContext';
 import { supabase } from './lib/supabase';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -15,9 +15,11 @@ import TitleGenerator from './pages/TitleGenerator';
 import Pricing from './pages/Pricing';
 import CostEstimator from './pages/CostEstimator';
 import AdminPlans from './pages/AdminPlans';
+import TechSpecs from './pages/TechSpecs';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import GlobalBatchProgress from './components/Batch/GlobalBatchProgress';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
@@ -122,29 +124,56 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
+  const loadProjects = useCallback(async () => {
+    if (!user) return;
+    console.log("[APP] Carregando projetos do banco...");
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*, script_items(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setProjects(data.map((p: any) => ({ 
+        ...p, 
+        createdAt: p.created_at,
+        targetAudience: p.target_audience || '',
+        baseTheme: p.base_theme || '',
+        globalDuration: p.global_duration || 12,
+        globalTone: p.global_tone || 'Misterioso e Sombrio',
+        globalRetention: p.global_retention || 'AIDA',
+        scriptMode: p.script_mode || 'auto',
+        items: p.script_items || [] 
+      })));
+    }
+  }, [user]);
+
   useEffect(() => {
     if (status === 'authenticated' && user) {
-      console.log("[DB] Carregando projetos para user:", user.id);
-      supabase.from('projects').select('*, script_items(*)').eq('user_id', user.id).order('created_at', { ascending: false })
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setProjects(data.map((p: any) => ({ 
-              ...p, 
-              createdAt: p.created_at,
-              targetAudience: p.target_audience || '',
-              baseTheme: p.base_theme || '',
-              globalDuration: p.global_duration || 12,
-              globalTone: p.global_tone || 'Misterioso e Sombrio',
-              globalRetention: p.global_retention || 'AIDA',
-              scriptMode: p.script_mode || 'auto',
-              items: p.script_items || [] 
-            })));
+      loadProjects();
+
+      // INÍCIO DA SINCRONIA REALTIME
+      // Este canal ouve qualquer mudança na tabela script_items (onde os roteiros são salvos)
+      const channel = supabase
+        .channel('db-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'script_items' },
+          (payload) => {
+            console.log("[REALTIME] Mudança detectada no item:", payload);
+            // Ao detectar mudança, recarregamos os projetos para garantir integridade total
+            loadProjects();
           }
-        });
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } else if (status === 'unauthenticated') {
       setProjects([]);
     }
-  }, [status, user]);
+  }, [status, user, loadProjects]);
 
   const handleUpdateProject = async (updated: Project) => {
     setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
@@ -154,6 +183,7 @@ const AppContent: React.FC = () => {
         niche: updated.niche, 
         base_theme: updated.baseTheme,
         target_audience: updated.targetAudience,
+        // Fix: Changed global_duration to globalDuration to match the Project type
         global_duration: updated.globalDuration,
         global_tone: updated.globalTone,
         global_retention: updated.globalRetention,
@@ -224,11 +254,24 @@ const AppContent: React.FC = () => {
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/cost-estimator" element={<ProtectedRoute roles={['adm']}><CostEstimator /></ProtectedRoute>} />
           <Route path="/admin/plans" element={<ProtectedRoute roles={['adm']}><AdminPlans /></ProtectedRoute>} />
+          <Route path="/admin/tech-specs" element={<ProtectedRoute roles={['adm']}><TechSpecs /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      <GlobalBatchProgress />
     </div>
   );
 };
 
-export default function App() { return <AuthProvider><Router><AppContent /></Router></AuthProvider>; }
+export default function App() { 
+  return (
+    <AuthProvider>
+      <BatchProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </BatchProvider>
+    </AuthProvider>
+  ); 
+}

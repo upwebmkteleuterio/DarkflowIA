@@ -20,11 +20,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   const navItems = [
     { name: 'Meus Projetos', icon: 'grid_view', path: '/', roles: ['free', 'pro', 'adm'] },
-    { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator', roles: ['free', 'pro', 'adm'] },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends', roles: ['free', 'pro', 'adm'] },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans', roles: ['free', 'pro', 'adm'] },
     { name: 'Configurações', icon: 'settings', path: '/settings', roles: ['free', 'pro', 'adm'] },
     { name: 'Gestão de Planos', icon: 'payments', path: '/admin/plans', roles: ['adm'] },
+    { name: 'Tecnologia & Docs', icon: 'terminal', path: '/admin/tech-specs', roles: ['adm'] },
     { name: 'Calculadora API', icon: 'calculate', path: '/cost-estimator', roles: ['adm'] },
   ];
 
@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
             <div className="space-y-3">
               <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Roteiros</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Texto</span>
                   <span className="material-symbols-outlined text-xs text-primary">description</span>
                 </div>
                 <div className="flex items-baseline gap-1">
@@ -105,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs" title="Roteiros">
+              <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs" title="Créditos de Texto">
                 {profile?.text_credits ?? 0}
               </div>
               <div className="size-10 bg-accent-green/10 rounded-xl flex items-center justify-center text-accent-green font-black text-xs" title="Imagens">

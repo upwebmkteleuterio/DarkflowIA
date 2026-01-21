@@ -43,7 +43,6 @@ export interface Project {
   winnerTemplate?: string;
   positiveInstructions?: string;
   negativeInstructions?: string;
-  // Campos adicionados para suportar o hook useScript legado
   script?: string;
   scriptPrompt?: string;
 }
@@ -62,4 +61,28 @@ export interface Trend {
   viralScore: number;
   marketGap: string;
   sources: { title: string; uri: string }[];
+}
+
+export type BatchType = 'script' | 'thumbnail' | 'metadata';
+
+export interface BatchTask {
+  id: string;
+  itemId: string;
+  projectId: string;
+  type: BatchType;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+  config?: any;
+}
+
+export interface BatchState {
+  tasks: BatchTask[];
+  isProcessing: boolean;
+  currentTaskId: string | null;
+  stats: {
+    total: number;
+    completed: number;
+    failed: number;
+    percent: number;
+  };
 }

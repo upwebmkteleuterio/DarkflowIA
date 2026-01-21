@@ -8,7 +8,6 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   
-  // Fix: Garantindo que project.items exista antes de tentar mapear e juntar
   const [titlesInput, setTitlesInput] = useState(() => {
     return (project.items || []).map(item => item.title).join('\n') || '';
   });
@@ -27,6 +26,7 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
       baseTheme: project.baseTheme || '',
       audience: project.targetAudience || '',
     });
+    // Sincroniza o input de títulos quando o projeto mudar (ex: ao trocar de projeto)
     setTitlesInput((project.items || []).map(item => item.title).join('\n') || '');
   }, [project.id]);
 
@@ -35,7 +35,6 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
     setIsSaved(false);
     
     saveTimeoutRef.current = setTimeout(async () => {
-      console.log("[IDEATION] Persistindo dados no banco...", updatedFields);
       const { error: dbError } = await supabase
         .from('projects')
         .update({
@@ -46,10 +45,8 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
         .eq('id', project.id);
 
       if (dbError) {
-        console.error("[IDEATION] Falha ao persistir:", dbError.message);
         setError("Erro ao salvar automaticamente: " + dbError.message);
       } else {
-        console.log("[IDEATION] Dados persistidos com sucesso.");
         setIsSaved(true);
         setTimeout(() => setIsSaved(false), 2000);
       }
@@ -74,42 +71,76 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
 
     setLoading(true);
     
-    const titlesArray = titlesInput
-      .split('\n')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
+    try {
+      const titlesFromInput = titlesInput
+        .split('\n')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
 
-    const newItems: ScriptItem[] = titlesArray.map((title, index) => {
-      const existing = (project.items || []).find(item => item.title === title);
-      return existing || {
-        id: `item-${Date.now()}-${index}`,
-        title,
-        script: '',
-        status: 'pending',
-        thumbnails: []
-      };
-    });
+      const currentItems = project.items || [];
+      
+      // 1. Identificar itens para deletar (existem no projeto mas não no novo input)
+      const itemsToDelete = currentItems.filter(item => !titlesFromInput.includes(item.title));
+      
+      if (itemsToDelete.length > 0) {
+        const deleteIds = itemsToDelete.map(i => i.id);
+        const { error: delError } = await supabase
+          .from('script_items')
+          .delete()
+          .in('id', deleteIds);
+          
+        if (delError) throw new Error(`Erro ao remover itens antigos: ${delError.message}`);
+        console.log(`[IDEATION] ${itemsToDelete.length} itens removidos por sincronia.`);
+      }
 
-    const dbItems = newItems.map(item => ({
-      id: item.id,
-      project_id: project.id,
-      title: item.title,
-      script: item.script || "",
-      status: item.status || "pending"
-    }));
+      // 2. Mapear novos itens mantendo os existentes
+      const syncedItems: ScriptItem[] = titlesFromInput.map((title, index) => {
+        const existing = currentItems.find(item => item.title === title);
+        
+        if (existing) {
+          return existing; // Mantém ID, roteiro, status e thumbnails
+        }
 
-    const { error: dbError } = await supabase.from('script_items').upsert(dbItems);
+        // Se for realmente novo, gera novo ID
+        return {
+          id: `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`,
+          title,
+          script: '',
+          status: 'pending',
+          thumbnails: []
+        };
+      });
 
-    if (dbError) {
-      setError(`Erro no banco: ${dbError.message}`);
-      setLoading(false);
-    } else {
+      // 3. Persistir apenas os itens novos ou atualizados no banco
+      const dbItems = syncedItems.map(item => ({
+        id: item.id,
+        project_id: project.id,
+        title: item.title,
+        script: item.script || "",
+        status: item.status || "pending",
+        thumbnails: item.thumbnails || [],
+        thumb_status: item.thumbStatus || "pending",
+        description: item.description || "",
+        chapters: item.chapters || "",
+        tags: item.tags || ""
+      }));
+
+      const { error: dbError } = await supabase.from('script_items').upsert(dbItems);
+
+      if (dbError) throw dbError;
+
+      // 4. Atualizar estado local e navegar
       onUpdate({
         ...project,
         ...formData,
-        items: newItems,
+        items: syncedItems,
       });
+      
       onNext();
+    } catch (err: any) {
+      setError(err.message || "Erro desconhecido ao processar lote.");
+    } finally {
+      setLoading(false);
     }
   };
 
