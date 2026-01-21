@@ -2,66 +2,41 @@
 # Mirror do Banco de Dados (Supabase) - Versão Final
 *Referência técnica atualizada em Março/2025.*
 
-## Tabela: `public.plans`
+## 🔐 Configurações de Ambiente (Edge Functions Secrets)
+Para o sistema de pagamentos funcionar, os seguintes segredos devem estar no Supabase:
+| Nome do Secret | Origem | Descrição |
+| :--- | :--- | :--- |
+| `STRIPE_SECRET_KEY` | Stripe (API Keys) | Chave secreta `sk_...` para criar sessões de checkout. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe (Webhooks) | Chave `whsec_...` para validar notificações de pagamento. |
+
+## 👤 Tabela: `public.profiles`
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| id | UUID | PK (Vinculado ao auth.users) |
+| display_name | TEXT | Nome público do usuário |
+| role | TEXT | free, pro, adm |
+| text_credits | INTEGER | Saldo de créditos de roteiro (Atualmente usado como saldo total) |
+| image_credits | INTEGER | Saldo de créditos de imagem |
+| subscription_status | TEXT | active, trialing, past_due, canceled |
+| stripe_customer_id | TEXT | ID do cliente no Stripe |
+| plan_id | UUID | FK para a tabela plans |
+| current_period_end | TIMESTAMP | Data de expiração/renovação da assinatura |
+
+## 📊 Tabela: `public.plans`
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
 | id | UUID | PK |
-| name | TEXT | Nome do plano |
+| name | TEXT | Nome do plano (Ex: Free, Profissional, Agência) |
 | price | NUMERIC | Valor mensal |
-| text_credits | INTEGER | Créditos de roteiro |
-| image_credits | INTEGER | Créditos de imagem |
+| text_credits | INTEGER | Créditos de roteiro incluídos |
+| image_credits | INTEGER | Créditos de imagem incluídos |
 | minutes_per_credit | INTEGER | Conversão tempo/crédito |
 | max_duration_limit | INTEGER | Limite do slider (Minutos) |
 | features | JSONB | Lista de benefícios (Array de strings) |
 | type | TEXT | free, pro, adm |
-| stripe_price_id | TEXT | ID do preço no Stripe para renovação |
+| stripe_price_id | TEXT | ID do preço no Stripe |
 
-## Tabela: `public.profiles`
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | UUID | PK (FK auth.users ON DELETE CASCADE) |
-| display_name | TEXT | Nome de exibição |
-| role | TEXT | free, pro, adm |
-| text_credits | INTEGER | Saldo atual de roteiro |
-| image_credits | INTEGER | Saldo atual de imagem |
-| plan_id | UUID | FK public.plans |
-| subscription_status | TEXT | active, trialing, past_due, canceled, free |
-| avatar_url | TEXT | URL da imagem de perfil |
-| stripe_customer_id | TEXT | ID do cliente no Stripe |
-| stripe_subscription_id | TEXT | ID da assinatura ativa |
-| current_period_end | TIMESTAMPTZ | Fim do período atual (Data de Renovação) |
-
-## Tabela: `public.projects`
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | TEXT | PK (Client-side generated ou UUID) |
-| user_id | UUID | FK auth.users ON DELETE CASCADE |
-| name | TEXT | Nome do projeto |
-| niche | TEXT | Nicho/Tópico |
-| base_theme | TEXT | Tema base/Descrição |
-| target_audience | TEXT | Público Alvo |
-| global_duration | INTEGER | Duração padrão do lote (min) |
-| global_tone | TEXT | Tom de voz padrão |
-| global_retention | TEXT | Estrutura de retenção padrão |
-| script_mode | TEXT | auto, manual, winner |
-| winner_template | TEXT | Template para modo vencedor |
-| created_at | TIMESTAMPTZ | Data de criação |
-
-## Tabela: `public.script_items`
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | TEXT | PK |
-| project_id | TEXT | FK public.projects ON DELETE CASCADE |
-| title | TEXT | Título do vídeo |
-| script | TEXT | Conteúdo da narração |
-| status | TEXT | pending, generating, completed, failed |
-| thumbnails | TEXT[] | Array de URLs (Supabase Storage) |
-| thumb_status | TEXT | pending, generating, completed, failed |
-| thumb_prompt | TEXT | Prompt usado para a imagem |
-| thumb_mode | TEXT | auto, manual |
-| description | TEXT | SEO: Descrição do YouTube |
-| chapters | TEXT | SEO: Timestamps/Capítulos |
-| tags | TEXT | SEO: Tags separadas por vígrama |
-| voice_status | TEXT | pending, generating, completed, failed |
-| voice_name | TEXT | Nome da voz Gemini usada |
-| audio_url | TEXT | URL do arquivo .pcm/wav |
+### Mapeamento de Dados Atual (Sincronizado com Stripe):
+- **Free**: (R$ 0) -> `stripe_price_id`: `NULL`
+- **Profissional**: (R$ 99) -> `stripe_price_id`: `price_1Ss7WtBCuxUguEEAxw7LeQxc`
+- **Agência**: (R$ 249) -> `stripe_price_id`: `price_1Ss7X4BCuxUguEEAkgfmsOyp`

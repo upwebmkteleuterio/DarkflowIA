@@ -98,7 +98,8 @@ const Login: React.FC = () => {
           </div>
 
           <div className="flex justify-end">
-            <Link to="/forgot-password" size="sm" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
+            {/* Fix: Removed invalid 'size' prop from Link component which is not supported by react-router-dom Link */}
+            <Link to="/forgot-password" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
               Esqueceu a senha?
             </Link>
           </div>

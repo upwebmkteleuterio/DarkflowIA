@@ -15,6 +15,9 @@ interface UserProfile {
   plan_id: string;
   minutes_per_credit?: number;
   max_duration_limit?: number;
+  // Added missing field to support renewal date display in Settings.tsx
+  current_period_end?: string;
+  stripe_customer_id?: string;
 }
 
 interface AuthContextType {

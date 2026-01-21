@@ -1,8 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Badge from '../components/ui/Badge';
 import { useAuth } from '../context/AuthContext';
+import PaymentModal from '../components/Pricing/PaymentModal';
 
 interface Plan {
   id: string;
@@ -13,12 +15,17 @@ interface Plan {
   minutes_per_credit: number;
   features: string[];
   type: 'free' | 'pro';
+  stripe_price_id?: string;
 }
 
 const Pricing: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
-  const { profile } = useAuth();
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<Plan | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'canceled' | null>(null);
+  const { profile, user, refreshProfile } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -30,15 +37,108 @@ const Pricing: React.FC = () => {
       if (!error && data) setPlans(data);
       setLoading(false);
     };
+
+    // Como usamos HashRouter, o Stripe retorna a query após a hash: #/plans?success=true
+    // Precisamos ler os parâmetros da location do react-router
+    const searchParams = new URLSearchParams(location.search);
+    
+    if (searchParams.get('success') === 'true') {
+      setPaymentStatus('success');
+      refreshProfile(); // Atualiza créditos na UI
+      // Limpa a URL para não ficar mostrando a mensagem de sucesso no F5
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
+    }
+    
+    if (searchParams.get('canceled') === 'true') {
+      setPaymentStatus('canceled');
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
+    }
+
     fetchPlans();
-  }, []);
+  }, [location.search, refreshProfile]);
+
+  const handleOpenCheckout = (plan: Plan) => {
+    if (!user) {
+      window.location.hash = '#/login';
+      return;
+    }
+    setSelectedPlanForCheckout(plan);
+  };
+
+  const handleStripeCheckout = async () => {
+    if (!selectedPlanForCheckout || !user) return;
+    
+    if (!selectedPlanForCheckout.stripe_price_id) {
+        alert("Este plano ainda não foi configurado com um ID do Stripe no banco de dados.");
+        return;
+    }
+
+    setProcessingPayment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { 
+          priceId: selectedPlanForCheckout.stripe_price_id,
+          userId: user.id,
+          returnUrl: window.location.origin
+        }
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("Não foi possível gerar o link de pagamento.");
+      }
+    } catch (err: any) {
+      alert("Erro ao iniciar checkout: " + err.message);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handlePixCheckout = () => {
+    alert("Opção PIX: No momento o PIX é processado manualmente. Chame o suporte informando o plano desejado.");
+    setSelectedPlanForCheckout(null);
+  };
 
   return (
     <div className="max-w-[1200px] mx-auto w-full px-6 py-10 animate-in fade-in duration-700">
+      
+      {/* Mensagens de Retorno do Stripe */}
+      {paymentStatus === 'success' && (
+        <div className="mb-10 p-6 bg-accent-green/10 border border-accent-green/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
+           <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black">
+              <span className="material-symbols-outlined font-black">check</span>
+           </div>
+           <div className="text-left text-left-important">
+              <h4 className="text-white font-black uppercase italic">Pagamento Confirmado!</h4>
+              <p className="text-slate-400 text-xs">Sua assinatura foi ativada e seus créditos já foram creditados.</p>
+           </div>
+           <button onClick={() => setPaymentStatus(null)} className="ml-auto text-slate-500 hover:text-white">
+              <span className="material-symbols-outlined">close</span>
+           </button>
+        </div>
+      )}
+
+      {paymentStatus === 'canceled' && (
+        <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
+           <div className="size-12 bg-red-500 rounded-full flex items-center justify-center text-white">
+              <span className="material-symbols-outlined font-black">close</span>
+           </div>
+           <div className="text-left text-left-important">
+              <h4 className="text-white font-black uppercase italic">Pagamento Cancelado</h4>
+              <p className="text-slate-400 text-xs">O processo de checkout foi interrompido. Nenhuma cobrança foi realizada.</p>
+           </div>
+           <button onClick={() => setPaymentStatus(null)} className="ml-auto text-slate-500 hover:text-white">
+              <span className="material-symbols-outlined">close</span>
+           </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap justify-between items-end gap-6 mb-12 text-center md:text-left">
         <div className="flex flex-col gap-3 max-w-2xl">
-          <h2 className="text-white text-5xl font-black leading-tight tracking-tight font-display uppercase">Planos & <span className="text-primary italic">Créditos</span></h2>
-          <p className="text-slate-400 text-lg">Turbine seus canais dark com inteligência artificial de ponta e escale sua produção.</p>
+          <h2 className="text-white text-5xl font-black leading-tight tracking-tight font-display uppercase text-left">Planos & <span className="text-primary italic">Créditos</span></h2>
+          <p className="text-slate-400 text-lg text-left">Turbine seus canais dark com inteligência artificial de ponta e escale sua produção.</p>
         </div>
       </div>
 
@@ -68,7 +168,7 @@ const Pricing: React.FC = () => {
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className="space-y-2 text-left">
                   <h3 className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-white text-5xl font-black tracking-tighter">R$ {plan.price}</span>
@@ -87,7 +187,7 @@ const Pricing: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4 flex-1">
+                <div className="space-y-4 flex-1 text-left">
                   <div className="flex items-center gap-3 text-xs font-bold text-white bg-primary/10 p-2 rounded-xl border border-primary/20">
                      <span className="material-symbols-outlined text-primary">schedule</span>
                      1 Crédito = {plan.minutes_per_credit} min
@@ -102,6 +202,7 @@ const Pricing: React.FC = () => {
 
                 <button 
                   disabled={isCurrentPlan}
+                  onClick={() => handleOpenCheckout(plan)}
                   className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
                   isCurrentPlan
                   ? 'bg-slate-800 text-slate-500 cursor-default'
@@ -117,6 +218,7 @@ const Pricing: React.FC = () => {
         </div>
       )}
 
+      {/* Seção Informativa de Pagamento Manual / PIX */}
       <div className="bg-surface-dark border border-border-dark p-10 rounded-[48px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl border-dashed">
          <div className="flex items-center gap-6">
             <div className="bg-primary/20 size-16 rounded-full flex items-center justify-center text-primary border border-primary/20">
@@ -131,6 +233,17 @@ const Pricing: React.FC = () => {
             Verificar Renovação
          </button>
       </div>
+
+      {/* Modal de Pagamento */}
+      {selectedPlanForCheckout && (
+        <PaymentModal 
+          plan={selectedPlanForCheckout}
+          loading={processingPayment}
+          onClose={() => setSelectedPlanForCheckout(null)}
+          onSelectStripe={handleStripeCheckout}
+          onSelectPix={handlePixCheckout}
+        />
+      )}
     </div>
   );
 };

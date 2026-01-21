@@ -66,7 +66,8 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-slate-400">
       <span className="material-symbols-outlined text-6xl mb-4 opacity-20">search_off</span>
       <p className="font-bold text-lg">Projeto não encontrado</p>
-      <link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</link>
+      {/* Fix: Changed lowercase link to capitalized Link component */}
+      <Link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</Link>
     </div>
   );
 
