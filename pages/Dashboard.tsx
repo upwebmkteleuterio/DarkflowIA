@@ -3,8 +3,8 @@ import React from 'react';
 import { Project } from '../types';
 import { useDashboard } from '../hooks/useDashboard';
 import ProjectCard from '../components/Dashboard/ProjectCard';
+import DashboardToolbar from '../components/Dashboard/DashboardToolbar';
 import Button from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 
 interface DashboardProps {
   projects: Project[];
@@ -33,10 +33,10 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
       {/* Header & Welcome */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div className="space-y-1">
-          <h2 className="text-white text-3xl md:text-5xl font-black tracking-tighter font-display">
+          <h2 className="text-white text-3xl md:text-5xl font-black tracking-tighter font-display text-left">
             Central de <span className="text-primary italic">Criação</span>
           </h2>
-          <p className="text-slate-400 text-sm font-medium">Você tem {projects.length} projetos em andamento hoje.</p>
+          <p className="text-slate-400 text-sm font-medium text-left">Você tem {projects.length} projetos em andamento hoje.</p>
         </div>
         
         <Button 
@@ -49,32 +49,14 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
         </Button>
       </div>
 
-      {/* Toolbar: Busca e Filtros */}
-      <div className="bg-surface-dark border border-border-dark p-2 rounded-2xl mb-10 flex flex-col md:flex-row gap-2 shadow-xl">
-        <div className="flex-1">
-          <Input 
-            icon="search"
-            placeholder="Buscar projeto por nome..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          {filterItems.map((item) => (
-            <Button
-              key={item.id}
-              variant={filter === item.id ? 'primary' : 'ghost'}
-              size="md"
-              icon={item.icon}
-              onClick={() => setFilter(item.id as any)}
-              className={filter === item.id ? 'shadow-lg shadow-primary/10' : ''}
-            >
-              {item.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Toolbar: Busca e Filtros (Refatorado para componente isolado) */}
+      <DashboardToolbar 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filter={filter}
+        setFilter={setFilter}
+        filterItems={filterItems}
+      />
 
       {/* Grid de Projetos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
