@@ -2,6 +2,30 @@
 # Mirror do Banco de Dados (Supabase) - Versão Final
 *Referência técnica atualizada em Março/2025.*
 
+## Tabela: `public.plans`
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| id | UUID | PK |
+| name | TEXT | Nome do plano |
+| price | NUMERIC | Valor mensal |
+| text_credits | INTEGER | Créditos de roteiro |
+| image_credits | INTEGER | Créditos de imagem |
+| minutes_per_credit | INTEGER | Conversão tempo/crédito |
+| max_duration_limit | INTEGER | Limite do slider |
+| features | JSONB | Lista de benefícios |
+| type | TEXT | free, pro, adm |
+
+## Tabela: `public.profiles`
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| id | UUID | PK (FK auth.users) |
+| display_name | TEXT | Nome de exibição |
+| role | TEXT | free, pro, adm |
+| text_credits | INTEGER | Saldo atual de roteiro |
+| image_credits | INTEGER | Saldo atual de imagem |
+| plan_id | UUID | FK public.plans |
+| subscription_status | TEXT | active, trialing, etc |
+
 ## Tabela: `public.projects`
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |

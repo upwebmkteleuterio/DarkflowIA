@@ -49,14 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log("[AUTH] Buscando perfil para ID:", userId);
+      
+      // Tentativa de buscar perfil com join em planos
       const { data, error } = await supabase
         .from('profiles')
         .select('*, plans(*)')
         .eq('id', userId)
-        .single();
+        .maybeSingle(); // Usamos maybeSingle para evitar erro 406 se não houver registro
       
       if (error) {
         console.error("[AUTH] Erro ao buscar perfil:", error.message);
+        // Se houver erro de rede ou banco, não deixamos em loading infinito
         setStatus('unauthenticated');
       } else if (data) {
         console.log("[AUTH] Perfil carregado com sucesso.");
@@ -67,10 +70,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } as any);
         setStatus('authenticated');
       } else {
+        // Se o usuário está no Auth mas não tem perfil (o trigger falhou ou ainda não rodou)
+        console.warn("[AUTH] Usuário logado mas registro na tabela 'profiles' não encontrado.");
         setStatus('unauthenticated');
       }
     } catch (e) {
-      console.error("[AUTH] Exceção ao buscar perfil:", e);
+      console.error("[AUTH] Exceção crítica ao buscar perfil:", e);
       setStatus('unauthenticated');
     } finally {
       if (timeoutRef.current) {
@@ -88,8 +93,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         console.log("[AUTH] Inicializando...");
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
+        if (error) throw error;
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
@@ -113,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(newSession);
         setUser(newSession?.user ?? null);
         if (newSession?.user) {
+          // Só entramos em loading se ainda não estivermos autenticados para evitar flicker
           setStatus('loading');
           await fetchProfile(newSession.user.id);
         }
@@ -132,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     console.log("[AUTH] Saindo...");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -139,6 +148,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     localStorage.clear();
     sessionStorage.clear();
+    setProfile(null);
+    setUser(null);
+    setStatus('unauthenticated');
     window.location.hash = '#/login';
   };
 
