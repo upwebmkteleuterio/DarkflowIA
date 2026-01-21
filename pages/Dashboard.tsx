@@ -16,17 +16,9 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
   const {
     searchQuery,
     setSearchQuery,
-    filter,
-    setFilter,
     filteredProjects,
     handleDeleteProject
   } = useDashboard(projects, (updated) => setProjects(updated));
-
-  const filterItems = [
-    { id: 'all', label: 'Todos', icon: 'list' },
-    { id: 'scripted', label: 'Roteiros', icon: 'description' },
-    { id: 'thumbnailed', label: 'Thumbs', icon: 'image' }
-  ];
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-10 py-8 md:py-12 animate-in fade-in duration-700">
@@ -49,13 +41,10 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
         </Button>
       </div>
 
-      {/* Toolbar: Busca e Filtros (Refatorado para componente isolado) */}
+      {/* Toolbar: Busca (Filtros removidos conforme solicitado) */}
       <DashboardToolbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        filter={filter}
-        setFilter={setFilter}
-        filterItems={filterItems}
       />
 
       {/* Grid de Projetos */}
@@ -76,7 +65,7 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 bg-surface-dark/10 rounded-3xl border-2 border-dashed border-border-dark">
             <span className="material-symbols-outlined text-6xl mb-4 opacity-10">search_off</span>
             <p className="font-bold text-white">Nenhum projeto encontrado</p>
-            <p className="text-sm">Tente mudar os termos da busca ou filtros.</p>
+            <p className="text-sm">Tente mudar os termos da busca.</p>
           </div>
         )}
 

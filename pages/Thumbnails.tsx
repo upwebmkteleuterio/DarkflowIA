@@ -111,6 +111,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
             style={batchConfig.style}
             variations={batchConfig.variations}
             isProcessing={isProcessing}
+            hasScript={!!selectedItem?.script}
             onModeChange={handleModeChange}
             onPromptChange={handlePromptChange}
             onStyleChange={handleStyleChange}

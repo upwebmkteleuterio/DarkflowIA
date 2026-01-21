@@ -6,9 +6,13 @@ import { uploadThumbnail } from '../services/storageService';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
+interface ExtendedBatchTask extends BatchTask {
+  onSuccess?: (data: any) => void;
+}
+
 interface BatchContextType {
   state: BatchState;
-  addToQueue: (project: Project, itemIds: string[], type: BatchType, config?: any) => void;
+  addToQueue: (project: Project, itemIds: string[], type: BatchType, config?: any, onSuccess?: (itemId: string, data: any) => void) => void;
   clearQueue: () => void;
   stopProcessing: () => void;
   getTaskStatus: (itemId: string, type: BatchType) => BatchTask | undefined;
@@ -18,7 +22,7 @@ const BatchContext = createContext<BatchContextType | undefined>(undefined);
 
 export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, profile, refreshProfile } = useAuth();
-  const [state, setState] = useState<BatchState>({
+  const [state, setState] = useState<BatchState & { tasks: ExtendedBatchTask[] }>({
     tasks: [],
     isProcessing: false,
     currentTaskId: null,
@@ -40,8 +44,8 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setState(prev => ({ ...prev, stats: { total, completed, failed, percent } }));
   }, [state.tasks]);
 
-  const processTask = async (task: BatchTask, project: any) => {
-    if (!user || !profile) return;
+  const processTask = async (task: ExtendedBatchTask, project: any): Promise<{ status: 'completed' | 'failed', data?: any, error?: string }> => {
+    if (!user || !profile) return { status: 'failed', error: 'Usuário não autenticado' };
 
     try {
       // LOGICA DE ROTEIRO
@@ -68,7 +72,8 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!success) throw new Error("Erro no pagamento de créditos.");
 
         await supabase.from('script_items').update({ script, status: 'completed' }).eq('id', task.itemId);
-        return { status: 'completed' as const };
+        
+        return { status: 'completed', data: script };
       }
 
       // LOGICA DE THUMBNAIL
@@ -99,29 +104,31 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!successImg) throw new Error("Erro no pagamento de imagens.");
 
         const existingThumbs = item?.thumbnails || [];
+        const combinedThumbs = [...publicUrls, ...existingThumbs];
+
         await supabase.from('script_items').update({ 
-          thumbnails: [...publicUrls, ...existingThumbs],
+          thumbnails: combinedThumbs,
           thumb_status: 'completed',
           thumb_prompt: finalPrompt
         }).eq('id', task.itemId);
 
-        return { status: 'completed' as const };
+        return { status: 'completed', data: combinedThumbs };
       }
 
-      return { status: 'completed' as const };
+      return { status: 'completed' };
     } catch (error: any) {
       const field = task.type === 'script' ? 'status' : 'thumb_status';
       await supabase.from('script_items').update({ [field]: 'failed', error: error.message }).eq('id', task.itemId);
-      return { status: 'failed' as const, error: error.message };
+      return { status: 'failed', error: error.message };
     }
   };
 
   useEffect(() => {
     const runQueue = async () => {
       if (isProcessingRef.current || state.tasks.length === 0) return;
-      const nextTask = state.tasks.find(t => t.status === 'pending');
       
-      if (!nextTask) {
+      const nextTaskIndex = state.tasks.findIndex(t => t.status === 'pending');
+      if (nextTaskIndex === -1) {
         if (state.isProcessing) {
           setState(prev => ({ ...prev, isProcessing: false, currentTaskId: null }));
           isProcessingRef.current = false;
@@ -129,27 +136,41 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
+      const nextTask = state.tasks[nextTaskIndex];
+
       isProcessingRef.current = true;
-      setState(prev => ({ ...prev, isProcessing: true, currentTaskId: nextTask.id }));
-      setState(prev => ({ ...prev, tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: 'processing' } : t) }));
+      setState(prev => ({ 
+        ...prev, 
+        isProcessing: true, 
+        currentTaskId: nextTask.id,
+        tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: 'processing' } : t)
+      }));
 
       const { data: projectData } = await supabase.from('projects').select('*').eq('id', nextTask.projectId).single();
       const result = await processTask(nextTask, projectData);
 
+      // Chamar o callback de sucesso imediatamente se houver dados e for sucesso
+      if (result.status === 'completed' && nextTask.onSuccess) {
+        nextTask.onSuccess(result.data);
+      }
+
       await refreshProfile();
+      
       setState(prev => ({
         ...prev,
         tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: result.status, error: result.error } : t),
         isProcessing: false,
         currentTaskId: null
       }));
+      
       isProcessingRef.current = false;
     };
+    
     runQueue();
   }, [state.tasks, user, profile]);
 
-  const addToQueue = useCallback((project: Project, itemIds: string[], type: BatchType, config?: any) => {
-    const newTasks: BatchTask[] = itemIds.map(itemId => {
+  const addToQueue = useCallback((project: Project, itemIds: string[], type: BatchType, config?: any, onSuccess?: (itemId: string, data: any) => void) => {
+    const newTasks: ExtendedBatchTask[] = itemIds.map(itemId => {
       const item = project.items.find(i => i.id === itemId);
       return {
         id: `${type}-${itemId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -157,7 +178,8 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         projectId: project.id,
         type,
         status: 'pending',
-        config: { ...config, title: item?.title }
+        config: { ...config, title: item?.title },
+        onSuccess: onSuccess ? (data) => onSuccess(itemId, data) : undefined
       };
     });
     setState(prev => ({ ...prev, tasks: [...prev.tasks, ...newTasks] }));

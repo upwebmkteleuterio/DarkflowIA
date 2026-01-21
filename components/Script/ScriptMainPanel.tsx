@@ -48,6 +48,22 @@ const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
     });
   };
 
+  const getStatusConfig = () => {
+    const status = selectedItem?.status || 'pending';
+    switch (status) {
+      case 'completed':
+        return { color: 'bg-accent-green', label: 'Finalizado', pulse: true };
+      case 'generating':
+        return { color: 'bg-primary', label: 'Gerando...', pulse: true };
+      case 'failed':
+        return { color: 'bg-red-500', label: 'Falhou', pulse: false };
+      default:
+        return { color: 'bg-slate-600', label: 'Pendente', pulse: false };
+    }
+  };
+
+  const statusConfig = getStatusConfig();
+
   return (
     <div className="flex flex-col h-full min-h-[600px] lg:min-h-0 lg:overflow-hidden pb-10 lg:pb-0">
       <div className="bg-surface-dark border border-border-dark rounded-[32px] p-5 md:p-8 shadow-2xl flex flex-col flex-1 overflow-hidden relative">
@@ -76,9 +92,9 @@ const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
           {/* Status, Cópia e Contador */}
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-              <div className={`size-1.5 rounded-full ${selectedItem?.status === 'completed' ? 'bg-accent-green animate-pulse' : 'bg-primary animate-pulse'}`}></div>
+              <div className={`size-1.5 rounded-full ${statusConfig.color} ${statusConfig.pulse ? 'animate-pulse' : ''}`}></div>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                {selectedItem?.status === 'completed' ? 'Finalizado' : 'Processando'}
+                {statusConfig.label}
               </p>
             </div>
 

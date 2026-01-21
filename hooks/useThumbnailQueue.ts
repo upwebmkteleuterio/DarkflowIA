@@ -1,6 +1,6 @@
 
 import { useCallback, useRef, useEffect } from 'react';
-import { Project } from '../types';
+import { Project, ScriptItem } from '../types';
 import { useBatch } from '../context/BatchContext';
 
 export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project) => void) => {
@@ -12,9 +12,25 @@ export const useThumbnailQueue = (project: Project, onUpdate: (updated: Project)
   }, [project]);
 
   const handleGenerateSingle = async (itemId: string, config: { mode: 'auto' | 'manual', prompt: string, style: string, variations: number }) => {
-    // Adiciona a tarefa de thumbnail à fila global
-    addToQueue(projectRef.current, [itemId], 'thumbnail', config);
-    console.log(`[THUMB-QUEUE] Item ${itemId} enviado para a fila global de imagens.`);
+    
+    // Callback para atualizar a UI instantaneamente com as novas URLs
+    const handleThumbSuccess = (id: string, urls: string[]) => {
+      console.log(`[SYNC] Injetando ${urls.length} thumbnails instantâneas para item ${id}`);
+      const currentItems = projectRef.current.items || [];
+      const updatedItems = currentItems.map(item => 
+        item.id === id 
+          ? { ...item, thumbnails: urls, thumbStatus: 'completed' as const } 
+          : item
+      );
+      
+      onUpdate({
+        ...projectRef.current,
+        items: updatedItems
+      });
+    };
+
+    // Adiciona a tarefa de thumbnail à fila global com o callback de sucesso
+    addToQueue(projectRef.current, [itemId], 'thumbnail', config, handleThumbSuccess);
   };
 
   const isProcessing = batchState.isProcessing && batchState.tasks.some(t => t.projectId === project.id && t.type === 'thumbnail');

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Trend, TitleIdea } from "../types";
 
@@ -36,16 +37,34 @@ export const generateScript = async (title: string, niche: string, duration: num
 export const generateThumbnail = async (prompt: string, style: string, title?: string, referenceImage?: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
-    const contents: any = { parts: [{ text: `Thumbnail Style: ${style}. Scene: ${prompt}. Text: ${title || ''}` }] };
+    
+    // Prompt reforçado para garantir o texto na imagem
+    const textInstruction = title 
+      ? `\n\nCRITICAL REQUIREMENT: You MUST overlay the following text clearly on the image: "${title}". 
+         The text must be large, bold, and in a high-contrast color that stands out from the background. 
+         Position it strategically for maximum click-through rate.`
+      : '';
+
+    const contents: any = { 
+      parts: [
+        { 
+          text: `Create a high-impact YouTube Thumbnail. 
+                 Style: ${style}. 
+                 Visual Scene: ${prompt}.${textInstruction}` 
+        }
+      ] 
+    };
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents,
       config: { imageConfig: { aspectRatio: "16:9" } }
     });
+
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("Erro na imagem");
+    throw new Error("Erro na geração da imagem: a IA não retornou dados binários.");
   });
 };
 
@@ -53,7 +72,7 @@ export const generateScenePrompt = async (title: string, script: string, style: 
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Prompt visual para thumbnail de: "${title}". Estilo: ${style}.`,
+    contents: `Atue como um diretor de arte de YouTube. Analise o título "${title}" e o roteiro para criar um prompt visual épico para uma thumbnail. Estilo desejado: ${style}. Retorne apenas o prompt descritivo da cena.`,
   });
   return response.text || title;
 };
@@ -62,7 +81,7 @@ export const generateMetadata = async (title: string, script: string): Promise<{
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Gere Metadados (descrição, chapters e tags) para: "${title}"`,
+    contents: `Gere Metadados (descrição persuasiva, capítulos timestamps e tags) para o vídeo: "${title}". Roteiro base: ${script.substring(0, 3000)}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -80,26 +99,87 @@ export const generateMetadata = async (title: string, script: string): Promise<{
 };
 
 export const searchTrends = async (theme: string, country: string): Promise<Trend[]> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: `Tendências virais sobre "${theme}" em "${country}" em JSON.`,
-    config: { tools: [{ googleSearch: {} }], responseMimeType: "application/json" }
+  return callWithRetry(async () => {
+    const ai = getAI();
+    const prompt = `
+      Atue como um analista de tendências virais do YouTube. 
+      Sua tarefa é pesquisar na web usando o Google Search e identificar 5 tendências EMERGENTES e REAIS sobre "${theme}" em "${country}".
+      
+      Regras:
+      1. Use o Google Search para encontrar notícias e tópicos reais que estão subindo em buscas.
+      2. O viralScore deve refletir o quão explosiva é a tendência (0 a 100).
+      3. No campo 'marketGap', explique o que falta nos vídeos atuais sobre esse tema.
+      4. No campo 'reason', explique por que esse tópico está em alta agora (fatores sociais, notícias, memes).
+      5. Inclua fontes reais (links) que comprovam a tendência.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: prompt,
+      config: { 
+        tools: [{ googleSearch: {} }], 
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              topic: { type: Type.STRING, description: "Nome curto e chamativo da tendência" },
+              reason: { type: Type.STRING, description: "Justificativa detalhada do porquê está viralizando" },
+              viralScore: { type: Type.INTEGER, description: "Score de 0 a 100 de potencial viral" },
+              marketGap: { type: Type.STRING, description: "O que os criadores atuais ainda não fizeram sobre isso" },
+              sources: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    uri: { type: Type.STRING }
+                  },
+                  required: ["title", "uri"]
+                }
+              }
+            },
+            required: ["id", "topic", "reason", "viralScore", "marketGap", "sources"]
+          }
+        }
+      }
+    });
+    
+    try {
+      return JSON.parse(response.text || "[]");
+    } catch (e) {
+      console.error("Erro ao parsear JSON de tendências:", e);
+      return [];
+    }
   });
-  return JSON.parse(response.text || "[]");
 };
 
 export const generateTitles = async (niche: string, audience: string, trigger: string, format: string, baseTheme: string): Promise<TitleIdea[]> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Gere 5 títulos virais para ${niche}`,
-    config: { responseMimeType: "application/json" }
+    contents: `Gere 5 títulos virais altamente clicáveis para o nicho ${niche} focado em ${audience}. Base: ${baseTheme}. Gatilho: ${trigger}.`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+            ctrScore: { type: Type.STRING }
+          },
+          required: ["title", "tags", "ctrScore"]
+        }
+      }
+    }
   });
   return JSON.parse(response.text || "[]");
 };
 
-// Implementação de Text-to-Speech usando o modelo gemini-2.5-flash-preview-tts
 export const generateSpeech = async (text: string, voiceName: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
@@ -119,7 +199,6 @@ export const generateSpeech = async (text: string, voiceName: string): Promise<s
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("Falha ao gerar áudio");
 
-    // Decodifica base64 para bytes manualmente seguindo as diretrizes
     const binaryString = atob(base64Audio);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -127,7 +206,6 @@ export const generateSpeech = async (text: string, voiceName: string): Promise<s
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Cria um Blob e gera uma URL temporária para consumo pelo hook useVoiceover
     const blob = new Blob([bytes], { type: 'audio/pcm' });
     return URL.createObjectURL(blob);
   });

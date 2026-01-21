@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Project } from '../types';
+import { Project, ScriptItem } from '../types';
 import { useBatch } from '../context/BatchContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,7 +39,24 @@ export const useScriptQueue = (project: Project, onUpdate: (updated: Project) =>
 
   const confirmBatch = async () => {
     const pending = projectRef.current.items.filter(i => i.status === 'pending');
-    addToQueue(projectRef.current, pending.map(i => i.id), 'script');
+    
+    // Callback de sucesso para injeção imediata na UI
+    const handleScriptSuccess = (itemId: string, scriptText: string) => {
+      console.log(`[SYNC] Injetando roteiro instantâneo para item ${itemId}`);
+      const currentItems = projectRef.current.items || [];
+      const updatedItems = currentItems.map(item => 
+        item.id === itemId 
+          ? { ...item, script: scriptText, status: 'completed' as const } 
+          : item
+      );
+      
+      onUpdate({
+        ...projectRef.current,
+        items: updatedItems
+      });
+    };
+
+    addToQueue(projectRef.current, pending.map(i => i.id), 'script', {}, handleScriptSuccess);
     setShowConfirm(false);
   };
 
