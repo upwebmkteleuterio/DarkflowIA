@@ -25,23 +25,24 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
-  const { status, profile, user } = useAuth();
+  const { status, profile, isLoading } = useAuth();
   
-  // Se estiver carregando mas já tivermos o 'user' (sessão persistida), permitimos renderizar o shell
-  // Isso evita que o loading screen apareça em trocas de aba
-  if (status === 'loading' && !user) {
+  // Se ainda estiver na fase de verificação inicial, mostra o loader global
+  if (isLoading) {
     return (
       <div className="min-h-[100dvh] bg-background-dark flex flex-col items-center justify-center gap-4">
         <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#8655f633]"></div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Validando Acesso...</p>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Autenticando...</p>
       </div>
     );
   }
 
+  // Só redireciona se tiver certeza que não está logado
   if (status === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
+  // Verifica permissões de role se necessário
   if (roles && profile && !roles.includes(profile.role)) {
     return <Navigate to="/" replace />;
   }
@@ -123,12 +124,13 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const { user, status } = useAuth();
+  const { user, status, isLoading } = useAuth();
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   const loadProjects = useCallback(async () => {
     if (!user) return;
+    console.log("[APP] Carregando projetos do usuário:", user.id);
     const { data, error } = await supabase
       .from('projects')
       .select('*, script_items(*)')
@@ -147,11 +149,13 @@ const AppContent: React.FC = () => {
         scriptMode: p.script_mode || 'auto',
         items: p.script_items || [] 
       })));
+    } else if (error) {
+      console.error("[APP] Erro ao carregar projetos:", error.message);
     }
   }, [user]);
 
   useEffect(() => {
-    if ((status === 'authenticated' || (status === 'loading' && user)) && user) {
+    if (status === 'authenticated' && user) {
       loadProjects();
 
       const channel = supabase
@@ -223,15 +227,14 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Se estiver carregando, mas já tivermos a sessão do usuário (user), não bloqueamos a interface total.
-  // Isso resolve o travamento do F5 e a troca de abas.
-  if (status === 'loading' && !user && !isAuthPage) {
+  // TELA DE CARREGAMENTO GLOBAL (SPLASH SCREEN)
+  if (isLoading && !isAuthPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
         <div className="text-center space-y-2">
            <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
-           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Sincronizando Sessão...</p>
+           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Estabelecendo Conexão Segura...</p>
         </div>
       </div>
     );
@@ -239,7 +242,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {!isAuthPage && (status === 'authenticated' || (status === 'loading' && user)) && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
+      {!isAuthPage && status === 'authenticated' && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>
