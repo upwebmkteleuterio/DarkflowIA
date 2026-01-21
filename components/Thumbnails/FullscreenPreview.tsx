@@ -16,7 +16,7 @@ const FullscreenPreview: React.FC<FullscreenPreviewProps> = ({ url, onClose, onD
       onClick={onClose}
     >
       <button 
-        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors z-[110]"
         onClick={onClose}
       >
         <span className="material-symbols-outlined text-5xl">close</span>
@@ -25,19 +25,9 @@ const FullscreenPreview: React.FC<FullscreenPreviewProps> = ({ url, onClose, onD
       <img 
         src={url} 
         alt="Thumbnail Fullscreen" 
-        className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain border border-white/10"
+        className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain border border-white/10 relative z-[105]"
         onClick={(e) => e.stopPropagation()}
       />
-      
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4">
-         <button 
-           onClick={() => onDownload(url)}
-           className="bg-primary text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 hover:scale-105 transition-all shadow-2xl shadow-primary/30"
-         >
-           <span className="material-symbols-outlined">download</span>
-           Baixar Imagem (4K Ultra HD)
-         </button>
-      </div>
     </div>
   );
 };

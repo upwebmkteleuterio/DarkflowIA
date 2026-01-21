@@ -22,7 +22,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
     mode: 'auto' as 'auto' | 'manual',
     prompt: '',
     style: 'realistic',
-    variations: 2 // Padrão solicitado: 2 imagens
+    variations: 2
   });
 
   const {
@@ -69,13 +69,29 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
     setBatchConfig(prev => ({ ...prev, variations: count }));
   };
 
-  const downloadImage = (url: string, title: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `thumb-${title.substring(0, 20)}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadImage = async (url: string, title: string) => {
+    try {
+      // Força o download via Blob para evitar que o navegador apenas abra a imagem
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `thumb-${title.substring(0, 20).replace(/\s+/g, '-')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Erro ao baixar imagem:", error);
+      // Fallback caso ocorra erro de CORS ou rede
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `thumb-${title.substring(0, 20)}.png`;
+      link.target = '_blank';
+      link.click();
+    }
   };
 
   const renderThumbBadge = (item: ScriptItem) => {
@@ -89,7 +105,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
     <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 md:py-8 h-full overflow-y-auto lg:overflow-hidden animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8 items-start lg:h-full lg:overflow-hidden">
         
-        {/* Lado Esquerdo: Configurações e Lista (No mobile ficam no topo) */}
         <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar lg:pr-1 pb-4 lg:pb-10">
           <ThumbnailConfigPanel 
             mode={batchConfig.mode}
@@ -112,7 +127,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
           />
         </div>
 
-        {/* Lado Direito: Editor Principal e Galeria */}
         <ThumbnailMainPanel 
           selectedItem={selectedItem}
           projectNiche={project.niche}
@@ -128,7 +142,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
       <FullscreenPreview 
         url={fullscreenImage} 
         onClose={() => setFullscreenImage(null)}
-        onDownload={(url) => downloadImage(url, 'download')}
+        onDownload={(url) => downloadImage(url, selectedItem?.title || 'download')}
       />
     </div>
   );

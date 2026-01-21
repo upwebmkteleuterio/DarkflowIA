@@ -1,7 +1,9 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Session } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
+
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 interface UserProfile {
   id: string;
@@ -11,26 +13,40 @@ interface UserProfile {
   image_credits: number;
   subscription_status: string;
   plan_id: string;
+  minutes_per_credit?: number;
+  max_duration_limit?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   session: Session | null;
-  loading: boolean;
+  status: AuthStatus;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SAFETY_TIMEOUT_MS = 10000; // 10 segundos
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchProfile = async (userId: string) => {
+    // Inicia o timer de segurança para evitar trava no loading infinito
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      if (status === 'loading') {
+        console.warn("[AUTH] Timeout de segurança atingido ao carregar perfil.");
+        setStatus('unauthenticated');
+      }
+    }, SAFETY_TIMEOUT_MS);
+
     try {
       console.log("[AUTH] Buscando perfil para ID:", userId);
       const { data, error } = await supabase
@@ -40,9 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) {
-        console.warn("[AUTH] Perfil não encontrado ou erro:", error.message);
-        // CRITICAL: Mesmo com erro, encerramos o loading para permitir o uso do app
-        setLoading(false);
+        console.error("[AUTH] Erro ao buscar perfil:", error.message);
+        setStatus('unauthenticated');
       } else if (data) {
         console.log("[AUTH] Perfil carregado com sucesso.");
         setProfile({
@@ -50,11 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
           max_duration_limit: data.plans?.max_duration_limit || 60
         } as any);
-        setLoading(false);
+        setStatus('authenticated');
+      } else {
+        setStatus('unauthenticated');
       }
     } catch (e) {
-      console.error("[AUTH] Erro catastrófico ao buscar perfil:", e);
-      setLoading(false);
+      console.error("[AUTH] Exceção ao buscar perfil:", e);
+      setStatus('unauthenticated');
+    } finally {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     }
   };
 
@@ -67,53 +89,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log("[AUTH] Inicializando...");
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
           await fetchProfile(currentSession.user.id);
         } else {
-          setLoading(false);
+          setStatus('unauthenticated');
         }
       } catch (e) {
-        console.error("[AUTH] Erro ao inicializar:", e);
-        setLoading(false);
+        console.error("[AUTH] Erro na inicialização:", e);
+        setStatus('unauthenticated');
       }
     };
 
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log("[AUTH] Mudança de estado detectada:", event);
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+      console.log("[AUTH] Evento Auth:", event);
       
-      if (newSession?.user) {
-        await fetchProfile(newSession.user.id);
-      } else {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        if (newSession?.user) {
+          setStatus('loading');
+          await fetchProfile(newSession.user.id);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
         setProfile(null);
-        setLoading(false);
+        setStatus('unauthenticated');
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   const signOut = async () => {
-    console.log("[AUTH] Realizando logout forçado...");
+    console.log("[AUTH] Saindo...");
     try {
       await supabase.auth.signOut();
     } catch (e) {
-      console.error("[AUTH] Erro no signOut:", e);
+      console.error("[AUTH] Erro no logout:", e);
     }
     localStorage.clear();
     sessionStorage.clear();
-    // Força recarregamento total para limpar estados pendentes
-    window.location.href = '/'; 
+    window.location.hash = '#/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, session, status, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

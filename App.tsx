@@ -21,17 +21,18 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
-  const { user, profile, loading } = useAuth();
+  const { status, profile } = useAuth();
   
-  if (loading) {
+  if (status === 'loading') {
     return (
-      <div className="min-h-[100dvh] bg-background-dark flex items-center justify-center">
-        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-[100dvh] bg-background-dark flex flex-col items-center justify-center gap-4">
+        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#8655f633]"></div>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Sincronizando Acesso...</p>
       </div>
     );
   }
 
-  if (!user) {
+  if (status === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
@@ -116,12 +117,13 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const { user, loading: authLoading } = useAuth();
+  const { user, status } = useAuth();
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   useEffect(() => {
-    if (user) {
+    // Só busca projetos se estiver estritamente AUTENTICADO
+    if (status === 'authenticated' && user) {
       console.log("[DB] Carregando projetos para user:", user.id);
       supabase.from('projects').select('*, script_items(*)').eq('user_id', user.id).order('created_at', { ascending: false })
         .then(({ data, error }) => {
@@ -130,7 +132,7 @@ const AppContent: React.FC = () => {
             setProjects(data.map((p: any) => ({ 
               ...p, 
               createdAt: p.created_at,
-              targetAudience: p.target_audience || '', // Fix: Garante carregamento do campo
+              targetAudience: p.target_audience || '',
               baseTheme: p.base_theme || '',
               globalDuration: p.global_duration || 12,
               globalTone: p.global_tone || 'Misterioso e Sombrio',
@@ -142,8 +144,10 @@ const AppContent: React.FC = () => {
             console.error("[DB] Erro ao carregar projetos:", error);
           }
         });
+    } else if (status === 'unauthenticated') {
+      setProjects([]);
     }
-  }, [user]);
+  }, [status, user]);
 
   const handleUpdateProject = async (updated: Project) => {
     setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
@@ -153,7 +157,7 @@ const AppContent: React.FC = () => {
         name: updated.name, 
         niche: updated.niche, 
         base_theme: updated.baseTheme,
-        target_audience: updated.targetAudience, // Fix: Inclusão no salvamento
+        target_audience: updated.targetAudience,
         global_duration: updated.globalDuration,
         global_tone: updated.globalTone,
         global_retention: updated.globalRetention,
@@ -199,17 +203,22 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (authLoading) {
+  // Se estiver carregando globalmente o auth, bloqueia tudo
+  if (status === 'loading' && !isAuthPage) {
     return (
-      <div className="h-[100dvh] w-full bg-background-dark flex items-center justify-center">
-        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
+        <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
+        <div className="text-center space-y-2">
+           <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
+           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Iniciando Protocolos de Segurança...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {!isAuthPage && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
+      {!isAuthPage && status === 'authenticated' && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative z-0">
         <Routes>
