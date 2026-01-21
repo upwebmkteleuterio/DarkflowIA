@@ -25,24 +25,25 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
-  const { status, profile, isLoading } = useAuth();
+  const { status, profile, isLoading, user } = useAuth();
   
-  // Se ainda estiver na fase de verificação inicial, mostra o loader global
-  if (isLoading) {
+  // Se estiver carregando mas já tivermos o 'user' (sessão persistida), permitimos renderizar o shell
+  // Isso resolve o travamento do F5 e a troca de abas.
+  if (isLoading && !user) {
     return (
       <div className="min-h-[100dvh] bg-background-dark flex flex-col items-center justify-center gap-4">
         <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#8655f633]"></div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Autenticando...</p>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Estabelecendo Conexão...</p>
       </div>
     );
   }
 
-  // Só redireciona se tiver certeza que não está logado
-  if (status === 'unauthenticated') {
+  // Se o carregamento terminou e não há usuário, vai para o login
+  if (!isLoading && status === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
-  // Verifica permissões de role se necessário
+  // Permite acesso se o usuário estiver autenticado, mesmo que o perfil completo esteja a caminho
   if (roles && profile && !roles.includes(profile.role)) {
     return <Navigate to="/" replace />;
   }
@@ -65,7 +66,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-slate-400">
       <span className="material-symbols-outlined text-6xl mb-4 opacity-20">search_off</span>
       <p className="font-bold text-lg">Projeto não encontrado</p>
-      <Link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</Link>
+      <link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</link>
     </div>
   );
 
@@ -155,7 +156,8 @@ const AppContent: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    if (status === 'authenticated' && user) {
+    // Permitimos carregar projetos se o usuário existir, mesmo se isLoading for true
+    if (user && (status === 'authenticated' || status === 'loading')) {
       loadProjects();
 
       const channel = supabase
@@ -172,10 +174,10 @@ const AppContent: React.FC = () => {
       return () => {
         supabase.removeChannel(channel);
       };
-    } else if (status === 'unauthenticated') {
+    } else if (!isLoading && status === 'unauthenticated') {
       setProjects([]);
     }
-  }, [status, user, loadProjects]);
+  }, [status, user, isLoading, loadProjects]);
 
   const handleUpdateProject = async (updated: Project) => {
     setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
@@ -227,14 +229,14 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // TELA DE CARREGAMENTO GLOBAL (SPLASH SCREEN)
-  if (isLoading && !isAuthPage) {
+  // SPLASH SCREEN: Só aparece se estiver carregando E não tivermos nem o TOKEN do usuário.
+  if (isLoading && !user && !isAuthPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
         <div className="text-center space-y-2">
            <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
-           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Estabelecendo Conexão Segura...</p>
+           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Sincronizando Sessão...</p>
         </div>
       </div>
     );
@@ -242,7 +244,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {!isAuthPage && status === 'authenticated' && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
+      {!isAuthPage && user && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>

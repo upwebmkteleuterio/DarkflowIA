@@ -22,7 +22,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   status: AuthStatus;
-  isLoading: boolean; // Estado definitivo de carregamento inicial
+  isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -38,12 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchingProfileId = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
-    // Evita chamadas duplicadas para o mesmo ID
     if (fetchingProfileId.current === userId) return;
     fetchingProfileId.current = userId;
 
     try {
-      console.log("[AUTH] Buscando perfil no banco...");
+      console.log("[AUTH] Buscando perfil no banco (Assíncrono)...");
       const { data, error } = await supabase
         .from('profiles')
         .select('*, plans(*)')
@@ -53,13 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("[AUTH] Erro ao buscar perfil:", error.message);
       } else if (data) {
+        console.log("[AUTH] Perfil carregado com sucesso.");
         setProfile({
           ...data,
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
           max_duration_limit: data.plans?.max_duration_limit || 60
         } as any);
-      } else {
-        console.warn("[AUTH] Perfil não encontrado na tabela 'profiles'.");
       }
     } catch (e) {
       console.error("[AUTH] Exceção na busca de perfil:", e);
@@ -73,49 +71,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const initialize = async () => {
+    const initializeAuth = async () => {
       try {
-        console.log("[AUTH] Verificando sessão inicial...");
+        console.log("[AUTH] Verificando sessão local...");
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
         if (initialSession?.user) {
-          console.log("[AUTH] Sessão encontrada:", initialSession.user.email);
+          console.log("[AUTH] Token validado:", initialSession.user.email);
           setSession(initialSession);
           setUser(initialSession.user);
-          // Buscamos o perfil, mas não bloqueamos o estado final se demorar
-          await fetchProfile(initialSession.user.id);
+          
+          // PONTO CHAVE: Disparamos a busca do perfil MAS NÃO usamos 'await'
+          // Isso libera a interface (isLoading vira false) imediatamente
+          fetchProfile(initialSession.user.id);
+          
+          setIsLoading(false);
         } else {
-          console.log("[AUTH] Nenhuma sessão ativa.");
+          console.log("[AUTH] Nenhuma sessão ativa no dispositivo.");
+          setIsLoading(false);
         }
       } catch (e) {
-        console.error("[AUTH] Erro crítico na inicialização:", e);
-      } finally {
-        // Marcamos como inicializado independente do resultado do perfil
+        console.error("[AUTH] Erro na inicialização do Auth:", e);
         setIsLoading(false);
-        console.log("[AUTH] Inicialização concluída.");
       }
     };
 
-    initialize();
+    initializeAuth();
 
-    // Listener de mudanças de estado (Login, Logout, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log("[AUTH] Evento detectado:", event);
+      console.log("[AUTH] Evento de Sessão:", event);
       
       if (newSession?.user) {
         setSession(newSession);
         setUser(newSession.user);
+        setIsLoading(false); // Garante liberação em logins manuais
         
-        // Só busca perfil se houver mudança ou se não tivermos o perfil ainda
         if (!profile || profile.id !== newSession.user.id) {
-          await fetchProfile(newSession.user.id);
+          fetchProfile(newSession.user.id);
         }
-      } else {
-        // Se não há sessão, limpamos tudo
+      } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
         setProfile(null);
-        // Garantimos que o loading pare se o evento for de assinar saída
         setIsLoading(false);
       }
     });
@@ -126,20 +123,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    console.log("[AUTH] Realizando logout...");
+    console.log("[AUTH] Saindo...");
     try {
       await supabase.auth.signOut();
-    } catch (e) {
-      console.error("[AUTH] Erro no signOut:", e);
-    }
-    // Limpeza imediata do estado local para feedback instantâneo
+    } catch (e) {}
     setProfile(null);
     setUser(null);
     setSession(null);
+    setIsLoading(false);
     window.location.hash = '#/login';
   };
 
-  // Determina o status baseado nos estados atômicos
   const status: AuthStatus = isLoading 
     ? 'loading' 
     : user 
