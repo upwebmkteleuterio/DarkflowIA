@@ -11,8 +11,8 @@
 | text_credits | INTEGER | Créditos de roteiro |
 | image_credits | INTEGER | Créditos de imagem |
 | minutes_per_credit | INTEGER | Conversão tempo/crédito |
-| max_duration_limit | INTEGER | Limite do slider |
-| features | JSONB | Lista de benefícios |
+| max_duration_limit | INTEGER | Limite do slider (Minutos) |
+| features | JSONB | Lista de benefícios (Array de strings) |
 | type | TEXT | free, pro, adm |
 
 ## Tabela: `public.profiles`
@@ -24,34 +24,40 @@
 | text_credits | INTEGER | Saldo atual de roteiro |
 | image_credits | INTEGER | Saldo atual de imagem |
 | plan_id | UUID | FK public.plans |
-| subscription_status | TEXT | active, trialing, etc |
+| subscription_status | TEXT | active, trialing, past_due |
+| avatar_url | TEXT | URL da imagem de perfil |
 
 ## Tabela: `public.projects`
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
-| id | TEXT | PK |
-| user_id | UUID | FK |
+| id | TEXT | PK (Client-side generated ou UUID) |
+| user_id | UUID | FK auth.users |
 | name | TEXT | Nome do projeto |
-| niche | TEXT | Nicho |
-| base_theme | TEXT | Tema base |
+| niche | TEXT | Nicho/Tópico |
+| base_theme | TEXT | Tema base/Descrição |
 | target_audience | TEXT | Público Alvo |
-| global_duration | INTEGER | Duração em minutos |
-| global_tone | TEXT | Tom de voz |
-| global_retention | TEXT | Estrutura de retenção |
-| script_mode | TEXT | Modo: auto, manual, winner |
+| global_duration | INTEGER | Duração padrão do lote (min) |
+| global_tone | TEXT | Tom de voz padrão |
+| global_retention | TEXT | Estrutura de retenção padrão |
+| script_mode | TEXT | auto, manual, winner |
 | winner_template | TEXT | Template para modo vencedor |
-| created_at | TIMESTAMPTZ | Data |
+| created_at | TIMESTAMPTZ | Data de criação |
 
 ## Tabela: `public.script_items`
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
 | id | TEXT | PK |
-| project_id | TEXT | FK |
-| title | TEXT | Título |
-| script | TEXT | Conteúdo do roteiro |
-| status | TEXT | pending, completed, generating, failed |
-| thumbnails | TEXT[] | Lista de URLs das imagens |
-| thumb_status | TEXT | pending, completed, etc |
-| description | TEXT | SEO Descrição |
-| chapters | TEXT | SEO Capítulos |
-| tags | TEXT | SEO Tags |
+| project_id | TEXT | FK public.projects |
+| title | TEXT | Título do vídeo |
+| script | TEXT | Conteúdo da narração |
+| status | TEXT | pending, generating, completed, failed |
+| thumbnails | TEXT[] | Array de URLs (Supabase Storage) |
+| thumb_status | TEXT | pending, generating, completed, failed |
+| thumb_prompt | TEXT | Prompt usado para a imagem |
+| thumb_mode | TEXT | auto, manual |
+| description | TEXT | SEO: Descrição do YouTube |
+| chapters | TEXT | SEO: Timestamps/Capítulos |
+| tags | TEXT | SEO: Tags separadas por vírgula |
+| voice_status | TEXT | pending, generating, completed, failed |
+| voice_name | TEXT | Nome da voz Gemini usada |
+| audio_url | TEXT | URL do arquivo .pcm/wav |

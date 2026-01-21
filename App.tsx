@@ -15,6 +15,7 @@ import TitleGenerator from './pages/TitleGenerator';
 import Pricing from './pages/Pricing';
 import CostEstimator from './pages/CostEstimator';
 import AdminPlans from './pages/AdminPlans';
+import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -122,13 +123,11 @@ const AppContent: React.FC = () => {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   useEffect(() => {
-    // Só busca projetos se estiver estritamente AUTENTICADO
     if (status === 'authenticated' && user) {
       console.log("[DB] Carregando projetos para user:", user.id);
       supabase.from('projects').select('*, script_items(*)').eq('user_id', user.id).order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (!error && data) {
-            console.log(`[DB] ${data.length} projetos encontrados.`);
             setProjects(data.map((p: any) => ({ 
               ...p, 
               createdAt: p.created_at,
@@ -140,8 +139,6 @@ const AppContent: React.FC = () => {
               scriptMode: p.script_mode || 'auto',
               items: p.script_items || [] 
             })));
-          } else if (error) {
-            console.error("[DB] Erro ao carregar projetos:", error);
           }
         });
     } else if (status === 'unauthenticated') {
@@ -152,7 +149,6 @@ const AppContent: React.FC = () => {
   const handleUpdateProject = async (updated: Project) => {
     setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
     if (user) {
-      console.log("[DB] Atualizando projeto:", updated.id);
       await supabase.from('projects').update({ 
         name: updated.name, 
         niche: updated.niche, 
@@ -197,13 +193,9 @@ const AppContent: React.FC = () => {
     if (!error) {
       setProjects([newProject, ...projects]);
       window.location.hash = `#/projects/${newId}`;
-    } else {
-      console.error("[DB] Erro ao criar projeto:", error);
-      alert("Erro ao criar projeto no banco de dados.");
     }
   };
 
-  // Se estiver carregando globalmente o auth, bloqueia tudo
   if (status === 'loading' && !isAuthPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
@@ -229,6 +221,7 @@ const AppContent: React.FC = () => {
           <Route path="/trends" element={<ProtectedRoute><TrendHunter /></ProtectedRoute>} />
           <Route path="/title-generator" element={<ProtectedRoute><TitleGenerator /></ProtectedRoute>} />
           <Route path="/plans" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/cost-estimator" element={<ProtectedRoute roles={['adm']}><CostEstimator /></ProtectedRoute>} />
           <Route path="/admin/plans" element={<ProtectedRoute roles={['adm']}><AdminPlans /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

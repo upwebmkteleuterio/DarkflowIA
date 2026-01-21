@@ -23,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
     { name: 'Gerador de Títulos', icon: 'auto_fix_high', path: '/title-generator', roles: ['free', 'pro', 'adm'] },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends', roles: ['free', 'pro', 'adm'] },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans', roles: ['free', 'pro', 'adm'] },
+    { name: 'Configurações', icon: 'settings', path: '/settings', roles: ['free', 'pro', 'adm'] },
     { name: 'Gestão de Planos', icon: 'payments', path: '/admin/plans', roles: ['adm'] },
     { name: 'Calculadora API', icon: 'calculate', path: '/cost-estimator', roles: ['adm'] },
   ];
@@ -35,7 +36,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("[SIDEBAR] Solicitando logout...");
     await signOut();
   };
 
@@ -118,12 +118,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         <div className={`p-4 md:p-6 border-t border-border-dark ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
            {(!isCollapsed || isMobile) ? (
              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 overflow-hidden flex-1">
-                   <div className="size-8 rounded-full bg-slate-800 flex items-center justify-center text-primary font-black text-xs flex-shrink-0 border border-border-dark">
+                <Link to="/settings" className="flex items-center gap-3 overflow-hidden flex-1 group">
+                   <div className="size-8 rounded-full bg-slate-800 flex items-center justify-center text-primary font-black text-xs flex-shrink-0 border border-border-dark group-hover:border-primary/50 transition-colors">
                       {(profile?.display_name || user?.email)?.charAt(0).toUpperCase()}
                    </div>
                    <div className="flex flex-col overflow-hidden flex-1">
-                      <p className="text-[10px] text-white font-black truncate leading-tight">{profile?.display_name || user?.email}</p>
+                      <p className="text-[10px] text-white font-black truncate leading-tight group-hover:text-primary transition-colors">{profile?.display_name || user?.email}</p>
                       <button 
                         onClick={handleLogout} 
                         className="text-left text-[9px] text-red-400 font-bold hover:underline uppercase tracking-tighter"
@@ -131,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
                         Sair da Conta
                       </button>
                    </div>
-                </div>
+                </Link>
              </div>
            ) : (
              <button 
@@ -149,7 +149,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      {/* Navbar Mobile fixa no topo */}
       <div className="lg:hidden w-full h-16 bg-surface-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0 z-[50] relative">
         <div className="flex items-center gap-3">
           <div className="bg-primary size-9 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
@@ -169,7 +168,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         {SidebarContent(false)}
       </aside>
 
-      {/* Overlay mobile melhorado com Z-index máximo */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[100] lg:hidden flex">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-500" onClick={closeMenu} />
