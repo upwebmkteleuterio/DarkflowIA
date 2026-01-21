@@ -23,7 +23,8 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
     stats
   } = useScriptQueue(project, onUpdate);
 
-  const [selectedItemId, setSelectedItemId] = useState(project.items[0]?.id || '');
+  // Segurança: Garante que items exista antes de acessar a primeira posição
+  const [selectedItemId, setSelectedItemId] = useState((project.items || [])[0]?.id || '');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const itemsArray = project.items || [];
   const selectedItem = itemsArray.find(i => i.id === selectedItemId);
@@ -82,7 +83,6 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
     <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 md:py-8 h-full overflow-y-auto lg:overflow-hidden animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8 items-start lg:h-full lg:overflow-hidden">
         
-        {/* Lado Esquerdo: Configurações e Lista (No mobile ficam no topo) */}
         <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar lg:pr-1 pb-4 lg:pb-10">
           <ScriptConfigPanel 
             project={project} 
@@ -111,7 +111,6 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
           />
         </div>
 
-        {/* Lado Direito: Editor Principal (No mobile rola para baixo para ver) */}
         <ScriptMainPanel 
           selectedItem={selectedItem}
           isAutoSaving={isAutoSaving}

@@ -7,7 +7,8 @@
     <title>DarkFlow AI - YouTube Automation SaaS</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <!-- Mudança para display=block para evitar que o nome do ícone apareça como texto em conexões lentas -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -36,9 +37,18 @@
         }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); }
         .font-display { font-family: 'Space Grotesk', sans-serif; }
+        
+        /* Otimização de Ícones: Oculta o texto até que a fonte esteja carregada */
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
         }
+        
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #1a1626; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #2d2839; border-radius: 10px; }
@@ -53,7 +63,6 @@
             display: none !important;
         }
 
-        /* Estilização Manual dos Sliders para garantir visibilidade do Thumb */
         input[type=range] {
           -webkit-appearance: none;
           background: transparent;
@@ -105,7 +114,6 @@
 </head>
 <body class="bg-background-dark text-slate-100 antialiased">
     <div id="root"></div>
-    <!-- Entry Point for Vercel and generic loaders -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

@@ -7,7 +7,12 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
-  const [titlesInput, setTitlesInput] = useState(project.items?.map(item => item.title).join('\n') || '');
+  
+  // Fix: Garantindo que project.items exista antes de tentar mapear e juntar
+  const [titlesInput, setTitlesInput] = useState(() => {
+    return (project.items || []).map(item => item.title).join('\n') || '';
+  });
+
   const [formData, setFormData] = useState({
     niche: project.niche || '',
     baseTheme: project.baseTheme || '',
@@ -16,14 +21,13 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sincroniza estado local se o projeto mudar (ex: ao carregar do banco)
   useEffect(() => {
     setFormData({
       niche: project.niche || '',
       baseTheme: project.baseTheme || '',
       audience: project.targetAudience || '',
     });
-    setTitlesInput(project.items?.map(item => item.title).join('\n') || '');
+    setTitlesInput((project.items || []).map(item => item.title).join('\n') || '');
   }, [project.id]);
 
   const persistProjectData = useCallback(async (updatedFields: any) => {
@@ -62,7 +66,6 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
 
   const handleProcessBatch = async (onNext: () => void) => {
     setError(null);
-    console.log("[IDEATION] Iniciando salvamento de itens em lote...");
     
     if (!formData.niche?.trim() || !formData.baseTheme?.trim() || !titlesInput.trim()) {
       setError("Por favor, preencha todos os campos obrigatórios antes de avançar.");
@@ -77,7 +80,7 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
       .filter(t => t.length > 0);
 
     const newItems: ScriptItem[] = titlesArray.map((title, index) => {
-      const existing = project.items?.find(item => item.title === title);
+      const existing = (project.items || []).find(item => item.title === title);
       return existing || {
         id: `item-${Date.now()}-${index}`,
         title,
@@ -95,16 +98,12 @@ export const useIdeation = (project: Project, onUpdate: (updated: Project) => vo
       status: item.status || "pending"
     }));
 
-    console.log("[IDEATION] Payload de itens para Upsert:", dbItems);
-
     const { error: dbError } = await supabase.from('script_items').upsert(dbItems);
 
     if (dbError) {
-      console.error("[IDEATION] ERRO CRÍTICO NO BANCO:", dbError);
-      setError(`Erro no banco: ${dbError.message}. Verifique se as colunas ID aceitam TEXT.`);
+      setError(`Erro no banco: ${dbError.message}`);
       setLoading(false);
     } else {
-      console.log("[IDEATION] Itens salvos com sucesso!");
       onUpdate({
         ...project,
         ...formData,

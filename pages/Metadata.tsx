@@ -27,8 +27,9 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
     copyToClipboard
   } = useMetadata(project, onUpdate);
 
-  const selectedItem = project.items.find(i => i.id === selectedItemId);
-  const completedScripts = project.items.filter(i => i.status === 'completed');
+  const items = project.items || [];
+  const selectedItem = items.find(i => i.id === selectedItemId);
+  const completedScripts = items.filter(i => i.status === 'completed');
 
   const seoScore = selectedItem?.description && selectedItem?.tags ? 85 + Math.floor(Math.random() * 15) : 0;
 
@@ -75,7 +76,7 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
            <div className="px-2 mb-4">
               <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Vídeos do Lote</h4>
            </div>
-           {project.items.map(item => (
+           {items.map(item => (
              <button
                 key={item.id}
                 onClick={() => setSelectedItemId(item.id)}
@@ -128,7 +129,7 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
                        <span className="material-symbols-outlined text-5xl text-primary opacity-50">ads_click</span>
                     </div>
                     <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tight font-display italic">SEO Inteligente</h3>
-                    <p className="text-slate-500 max-w-sm mb-10 text-sm font-medium leading-relaxed">Nossa IA irá escanear o roteiro e criar metadados que forçam o algoritmo a recomendar seu vídeo.</p>
+                    <p className="text-slate-500 max-w-sm mb-10 text-sm font-medium leading-relaxed">Nossa IA irá escanear o roteiro e criar metadados que forçar o algoritmo a recomendar seu vídeo.</p>
                     <Button size="xl" icon="rocket" onClick={() => handleGenerateSingle(selectedItemId)}>
                       Gerar Metadados Estratégicos
                     </Button>
@@ -159,7 +160,7 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
                          className="h-[550px] text-base leading-relaxed p-8 rounded-[32px]"
                          value={selectedItem.description}
                          onChange={(e) => {
-                           const updatedItems = project.items.map(i => i.id === selectedItemId ? {...i, description: e.target.value} : i);
+                           const updatedItems = items.map(i => i.id === selectedItemId ? {...i, description: e.target.value} : i);
                            onUpdate({...project, items: updatedItems});
                          }}
                        />
@@ -184,7 +185,7 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
                             className="h-56 font-mono text-xs opacity-80"
                             value={selectedItem.chapters}
                             onChange={(e) => {
-                              const updatedItems = project.items.map(i => i.id === selectedItemId ? {...i, chapters: e.target.value} : i);
+                              const updatedItems = items.map(i => i.id === selectedItemId ? {...i, chapters: e.target.value} : i);
                               onUpdate({...project, items: updatedItems});
                             }}
                           />
@@ -208,7 +209,7 @@ const Metadata: React.FC<MetadataProps> = ({ project, onUpdate }) => {
                             className="h-56 text-xs text-slate-400"
                             value={selectedItem.tags}
                             onChange={(e) => {
-                              const updatedItems = project.items.map(i => i.id === selectedItemId ? {...i, tags: e.target.value} : i);
+                              const updatedItems = items.map(i => i.id === selectedItemId ? {...i, tags: e.target.value} : i);
                               onUpdate({...project, items: updatedItems});
                             }}
                           />

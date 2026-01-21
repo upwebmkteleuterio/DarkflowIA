@@ -16,7 +16,8 @@ interface ThumbnailsProps {
 
 const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-  const [selectedItemId, setSelectedItemId] = useState(project.items[0]?.id || '');
+  // Segurança: Uso de fallback vazio para evitar erro de leitura de propriedade de undefined
+  const [selectedItemId, setSelectedItemId] = useState((project.items || [])[0]?.id || '');
   
   const [batchConfig, setBatchConfig] = useState({
     mode: 'auto' as 'auto' | 'manual',
@@ -42,7 +43,7 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
         prompt: selectedItem.thumbPrompt || ''
       }));
     }
-  }, [selectedItemId]);
+  }, [selectedItemId, selectedItem]);
 
   const updateSelectedItemConfig = (updates: Partial<ScriptItem>) => {
     const updatedItems = itemsArray.map(item => 
@@ -71,7 +72,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
 
   const downloadImage = async (url: string, title: string) => {
     try {
-      // Força o download via Blob para evitar que o navegador apenas abra a imagem
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -85,7 +85,6 @@ const Thumbnails: React.FC<ThumbnailsProps> = ({ project, onUpdate, onNext }) =>
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
-      // Fallback caso ocorra erro de CORS ou rede
       const link = document.createElement('a');
       link.href = url;
       link.download = `thumb-${title.substring(0, 20)}.png`;

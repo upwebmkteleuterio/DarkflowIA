@@ -50,7 +50,7 @@ const Pricing: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 items-stretch">
-          {plans.map((plan) => {
+          {(plans || []).map((plan) => {
             const isCurrentPlan = profile?.plan_id === plan.id || (plan.type === 'free' && !profile?.plan_id);
 
             return (
@@ -92,7 +92,7 @@ const Pricing: React.FC = () => {
                      <span className="material-symbols-outlined text-primary">schedule</span>
                      1 Crédito = {plan.minutes_per_credit} min
                   </div>
-                  {plan.features.map((feature, idx) => (
+                  {(plan.features || []).map((feature, idx) => (
                     <div key={idx} className="flex items-center gap-3 text-sm text-slate-300">
                       <span className="material-symbols-outlined text-primary text-lg">verified</span>
                       {feature}
