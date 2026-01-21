@@ -25,13 +25,15 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
-  const { status, profile } = useAuth();
+  const { status, profile, user } = useAuth();
   
-  if (status === 'loading') {
+  // Se estiver carregando mas já tivermos o 'user' (sessão persistida), permitimos renderizar o shell
+  // Isso evita que o loading screen apareça em trocas de aba
+  if (status === 'loading' && !user) {
     return (
       <div className="min-h-[100dvh] bg-background-dark flex flex-col items-center justify-center gap-4">
         <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_15px_#8655f633]"></div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Sincronizando Acesso...</p>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Validando Acesso...</p>
       </div>
     );
   }
@@ -127,7 +129,6 @@ const AppContent: React.FC = () => {
 
   const loadProjects = useCallback(async () => {
     if (!user) return;
-    console.log("[APP] Carregando projetos do banco...");
     const { data, error } = await supabase
       .from('projects')
       .select('*, script_items(*)')
@@ -150,7 +151,7 @@ const AppContent: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    if (status === 'authenticated' && user) {
+    if ((status === 'authenticated' || (status === 'loading' && user)) && user) {
       loadProjects();
 
       const channel = supabase
@@ -158,8 +159,7 @@ const AppContent: React.FC = () => {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'script_items' },
-          (payload) => {
-            console.log("[REALTIME] Mudança detectada no item:", payload);
+          () => {
             loadProjects();
           }
         )
@@ -223,13 +223,15 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (status === 'loading' && !isAuthPage) {
+  // Se estiver carregando, mas já tivermos a sessão do usuário (user), não bloqueamos a interface total.
+  // Isso resolve o travamento do F5 e a troca de abas.
+  if (status === 'loading' && !user && !isAuthPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
         <div className="text-center space-y-2">
            <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
-           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Iniciando Protocolos de Segurança...</p>
+           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Sincronizando Sessão...</p>
         </div>
       </div>
     );
@@ -237,7 +239,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {!isAuthPage && status === 'authenticated' && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
+      {!isAuthPage && (status === 'authenticated' || (status === 'loading' && user)) && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>
