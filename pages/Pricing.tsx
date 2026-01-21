@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -71,7 +70,7 @@ const Pricing: React.FC = () => {
     }
 
     setProcessingPayment(true);
-    console.log(`[STRIPE] Iniciando checkout para o plano: ${selectedPlanForCheckout.name}`);
+    console.log(`[STRIPE] Chamando Edge Function para o plano: ${selectedPlanForCheckout.name}`);
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
@@ -83,18 +82,32 @@ const Pricing: React.FC = () => {
       });
 
       if (error) {
-        console.error("[STRIPE ERROR OBJECT]", error);
-        throw error;
+        console.error("[EDGE ERROR DETAIL]", error);
+        
+        // Tenta pegar a mensagem de erro que nossa função enviou no JSON
+        let errorMessage = "Erro na comunicação com o servidor.";
+        if (error instanceof Error) errorMessage = error.message;
+        
+        // Em funções Edge, o erro às vezes vem envelopado no context
+        if ((error as any).context) {
+           try {
+             const body = await (error as any).context.json();
+             if (body?.error) errorMessage = body.error;
+           } catch(e) {}
+        }
+
+        throw new Error(errorMessage);
       }
 
       if (data?.url) {
+        console.log("[STRIPE] URL de pagamento recebida. Redirecionando...");
         window.location.href = data.url;
       } else {
-        throw new Error("Não foi possível gerar o link de pagamento.");
+        throw new Error("A resposta do servidor não continha uma URL válida.");
       }
     } catch (err: any) {
-      console.error("[STRIPE ERROR]", err);
-      alert("Erro ao iniciar checkout: " + (err.message || "Falha na comunicação com o servidor. Verifique os logs da Function no Supabase."));
+      console.error("[CHECKOUT ERROR]", err);
+      alert("Falha no Checkout: " + err.message);
     } finally {
       setProcessingPayment(false);
     }
@@ -113,7 +126,7 @@ const Pricing: React.FC = () => {
            <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black">
               <span className="material-symbols-outlined font-black">check</span>
            </div>
-           <div className="text-left text-left-important">
+           <div className="text-left">
               <h4 className="text-white font-black uppercase italic">Pagamento Confirmado!</h4>
               <p className="text-slate-400 text-xs">Sua assinatura foi ativada e seus créditos já foram creditados.</p>
            </div>
@@ -128,9 +141,9 @@ const Pricing: React.FC = () => {
            <div className="size-12 bg-red-500 rounded-full flex items-center justify-center text-white">
               <span className="material-symbols-outlined font-black">close</span>
            </div>
-           <div className="text-left text-left-important">
+           <div className="text-left">
               <h4 className="text-white font-black uppercase italic">Pagamento Cancelado</h4>
-              <p className="text-slate-400 text-xs">O processo de checkout foi interrompido. Nenhuma cobrança foi realizada.</p>
+              <p className="text-slate-400 text-xs">O processo de checkout foi interrompido.</p>
            </div>
            <button onClick={() => setPaymentStatus(null)} className="ml-auto text-slate-500 hover:text-white">
               <span className="material-symbols-outlined">close</span>

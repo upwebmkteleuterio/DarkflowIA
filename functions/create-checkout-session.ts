@@ -1,9 +1,3 @@
-
-// Esta função deve ser implantada no Supabase Edge Functions
-// Comando: supabase functions deploy create-checkout-session
-
-declare const Deno: any;
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1"
 import Stripe from "https://esm.sh/stripe@12.0.0?target=deno"
@@ -14,33 +8,36 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // 1. Lida com o CORS (Pré-vôo do navegador)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  console.log("[CHECKOUT] Iniciando nova requisição de sessão...");
+  console.log("--- INICIANDO PROCESSAMENTO DE CHECKOUT ---");
 
   try {
     const { priceId, userId, returnUrl } = await req.json()
-    console.log(`[CHECKOUT] Dados recebidos: UserID=${userId}, PriceID=${priceId}`);
+    console.log(`[CHECKOUT] Recebido: User=${userId}, PriceID=${priceId}`);
 
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // Access Deno through globalThis to resolve environment-specific type issues
+    const STRIPE_KEY = (globalThis as any).Deno.env.get('STRIPE_SECRET_KEY');
+    const SUPABASE_URL = (globalThis as any).Deno.env.get('SUPABASE_URL');
+    const SERVICE_ROLE = (globalThis as any).Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!stripeKey || !supabaseUrl || !serviceKey) {
-      console.error("[CHECKOUT] Erro: Faltam segredos (Secrets) no Supabase.");
-      throw new Error("Configuração de servidor incompleta (Secrets).");
+    if (!STRIPE_KEY) {
+      console.error("[ERROR] STRIPE_SECRET_KEY não encontrada nos Secrets!");
+      throw new Error("Configuração ausente: STRIPE_SECRET_KEY");
     }
 
-    const stripe = new Stripe(stripeKey, {
+    const stripe = new Stripe(STRIPE_KEY, {
       apiVersion: '2022-11-15',
       httpClient: Stripe.createFetchHttpClient(),
     })
 
-    const supabaseClient = createClient(supabaseUrl, serviceKey)
+    const supabaseClient = createClient(SUPABASE_URL || '', SERVICE_ROLE || '')
 
-    console.log("[CHECKOUT] Buscando perfil do usuário no banco...");
+    // 3. Busca o perfil
+    console.log("[CHECKOUT] Localizando perfil no banco de dados...");
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('stripe_customer_id, email')
@@ -48,28 +45,33 @@ serve(async (req) => {
       .single()
 
     if (profileError) {
-      console.error("[CHECKOUT] Erro ao buscar perfil:", profileError.message);
-      throw profileError;
+      console.error("[ERROR] Perfil não encontrado no banco:", profileError.message);
+      throw new Error(`Perfil não localizado: ${profileError.message}`);
     }
 
     let customerId = profile?.stripe_customer_id
-    console.log(`[CHECKOUT] Customer ID atual: ${customerId || 'Nenhum (será criado)'}`);
 
+    // 4. Se não tem Customer no Stripe, cria agora
     if (!customerId) {
-      console.log("[CHECKOUT] Criando novo cliente no Stripe...");
-      const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(userId)
-      if (userError) throw userError;
+      console.log("[CHECKOUT] Cliente não possui Stripe ID. Criando no Stripe...");
+      const { data: authUser, error: authError } = await supabaseClient.auth.admin.getUserById(userId)
+      
+      if (authError) {
+        console.error("[ERROR] Erro ao buscar dados de autenticação:", authError.message);
+        throw authError;
+      }
 
       const customer = await stripe.customers.create({
-        email: userData.user?.email,
+        email: authUser.user?.email || profile.email,
         metadata: { supabase_user_id: userId }
       })
       customerId = customer.id
+      console.log(`[CHECKOUT] Novo cliente criado: ${customerId}. Atualizando perfil...`);
       await supabaseClient.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId)
-      console.log(`[CHECKOUT] Novo cliente criado: ${customerId}`);
     }
 
-    console.log("[CHECKOUT] Gerando sessão do Stripe Checkout...");
+    // 5. Cria a sessão de checkout
+    console.log(`[CHECKOUT] Solicitando sessão ao Stripe para o PriceID: ${priceId}...`);
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
@@ -79,16 +81,18 @@ serve(async (req) => {
       metadata: { userId, priceId } 
     })
 
-    console.log("[CHECKOUT] Sessão criada com sucesso!");
-    return new Response(
-      JSON.stringify({ url: session.url }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
+    console.log("[CHECKOUT] SUCESSO: URL de checkout gerada!");
+
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    })
+
   } catch (error: any) {
-    console.error("[CHECKOUT] ERRO CRÍTICO:", error.message);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+    console.error("[ERRO CRÍTICO NO CHECKOUT]:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400
+    })
   }
 })
