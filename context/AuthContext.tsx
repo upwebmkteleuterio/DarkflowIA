@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Session } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
@@ -26,8 +27,10 @@ interface AuthContextType {
   session: Session | null;
   status: AuthStatus;
   isLoading: boolean;
+  isPasswordRecovery: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setIsPasswordRecovery: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   
   const fetchingProfileId = useRef<string | null>(null);
 
@@ -90,6 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+
       if (newSession?.user) {
         setSession(newSession);
         setUser(newSession.user);
@@ -113,13 +121,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setSession(null);
     setIsLoading(false);
+    setIsPasswordRecovery(false);
     window.location.hash = '#/login';
   };
 
   const status: AuthStatus = isLoading ? 'loading' : user ? 'authenticated' : 'unauthenticated';
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, status, isLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      session, 
+      status, 
+      isLoading, 
+      isPasswordRecovery, 
+      signOut, 
+      refreshProfile,
+      setIsPasswordRecovery 
+    }}>
       {children}
     </AuthContext.Provider>
   );
