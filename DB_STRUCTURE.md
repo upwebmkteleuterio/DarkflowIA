@@ -1,42 +1,30 @@
-
 # Mirror do Banco de Dados (Supabase) - Versão Final
 *Referência técnica atualizada em Março/2025.*
 
 ## 🔐 Configurações de Ambiente (Edge Functions Secrets)
-Para o sistema de pagamentos funcionar, os seguintes segredos devem estar no Supabase:
 | Nome do Secret | Origem | Descrição |
 | :--- | :--- | :--- |
-| `STRIPE_SECRET_KEY` | Stripe (API Keys) | Chave secreta `sk_...` para criar sessões de checkout. |
-| `STRIPE_WEBHOOK_SECRET` | Stripe (Webhooks) | Chave `whsec_...` para validar notificações de pagamento. |
+| `STRIPE_SECRET_KEY` | Stripe (API Keys) | Chave secreta `sk_...` para chamadas de API. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe (Webhooks) | Chave `whsec_...` para validar webhooks. |
+| `ABACATE_PAY_API_KEY` | Abacate Pay | Token Bearer para gerar PIX. |
+| `SUPABASE_URL` | Supabase (API Settings) | URL do seu projeto. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase (API Settings) | Chave de serviço (Master) para as funções. |
 
-## 👤 Tabela: `public.profiles`
+## 🛠️ Edge Functions Implantadas (Sincronizado com Dashboard)
+1. **`abacate-pay-webhook`**: Confirmação automática via Abacate Pay.
+2. **`check-pix-status`**: Valida manualmente o pagamento PIX.
+3. **`create-checkout-session`**: Inicia checkout via Stripe (Cartão).
+4. **`create-pix-payment`**: Gera QR Code PIX via Abacate Pay.
+5. **`stripe-webhook`**: Processa renovações e eventos do Stripe.
+6. **`create-portal-session`**: (NOVA) Gera o link para o usuário cancelar ou gerenciar o cartão no Stripe.
+
+## 👤 Tabela: `public.profiles` (Colunas Adicionais)
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
-| id | UUID | PK (Vinculado ao auth.users) |
-| display_name | TEXT | Nome público do usuário |
-| role | TEXT | free, pro, adm |
-| text_credits | INTEGER | Saldo de créditos de roteiro (Atualmente usado como saldo total) |
-| image_credits | INTEGER | Saldo de créditos de imagem |
-| subscription_status | TEXT | active, trialing, past_due, canceled |
-| stripe_customer_id | TEXT | ID do cliente no Stripe |
-| plan_id | UUID | FK para a tabela plans |
-| current_period_end | TIMESTAMP | Data de expiração/renovação da assinatura |
+| cellphone | TEXT | Telefone formatado para faturamento. |
+| tax_id | TEXT | CPF/CNPJ para faturamento. |
+| stripe_customer_id | TEXT | ID do cliente no Stripe (Necessário para o Portal). |
 
-## 📊 Tabela: `public.plans`
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| id | UUID | PK |
-| name | TEXT | Nome do plano (Ex: Free, Profissional, Agência) |
-| price | NUMERIC | Valor mensal |
-| text_credits | INTEGER | Créditos de roteiro incluídos |
-| image_credits | INTEGER | Créditos de imagem incluídos |
-| minutes_per_credit | INTEGER | Conversão tempo/crédito |
-| max_duration_limit | INTEGER | Limite do slider (Minutos) |
-| features | JSONB | Lista de benefícios (Array de strings) |
-| type | TEXT | free, pro, adm |
-| stripe_price_id | TEXT | ID do preço no Stripe |
-
-### Mapeamento de Dados Atual (Sincronizado com Stripe):
-- **Free**: (R$ 0) -> `stripe_price_id`: `NULL`
-- **Profissional**: (R$ 99) -> `stripe_price_id`: `price_1Ss7WtBCuxUguEEAxw7LeQxc`
-- **Agência**: (R$ 249) -> `stripe_price_id`: `price_1Ss7X4BCuxUguEEAkgfmsOyp`
+## 📊 Lógica de Automação
+- O faturamento via PIX exige Nome, Celular e CPF salvos no perfil.
+- O cancelamento de cartão é feito via Stripe Billing Portal, garantindo conformidade com leis de assinatura.

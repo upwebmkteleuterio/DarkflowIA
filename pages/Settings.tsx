@@ -10,6 +10,7 @@ const Settings: React.FC = () => {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [loading, setLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -36,14 +37,28 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleManageBilling = async () => {
+    if (!user) return;
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-portal-session', {
+        body: { userId: user.id, returnUrl: window.location.origin }
+      });
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+    } catch (err: any) {
+      alert("Apenas assinantes via cartão podem gerenciar pelo portal: " + err.message);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     const confirmText = "DELETAR";
     const input = prompt(`AVISO CRÍTICO: Esta ação apagará TODOS os seus projetos, créditos e roteiros de forma IRREVERSÍVEL.\n\nPara confirmar, digite ${confirmText} no campo abaixo:`);
     
     if (input === confirmText) {
       setLoading(true);
-      // Nota: Em Supabase, deletar a própria conta do auth.users via client-side requer uma Edge Function.
-      // Aqui simulamos o processo e avisamos o usuário.
       alert("Solicitação enviada. Por questões de segurança, sua conta será processada para exclusão em instantes.");
       await signOut();
     }
@@ -76,7 +91,6 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Lado Esquerdo: Info do Plano */}
         <div className="md:col-span-1 space-y-6">
           <div className="bg-surface-dark border border-border-dark p-6 rounded-[32px] shadow-2xl relative overflow-hidden text-left">
             <div className="absolute -top-10 -right-10 size-32 bg-primary/10 rounded-full blur-3xl"></div>
@@ -103,7 +117,22 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            <Button variant="outline" fullWidth className="mt-8" size="sm" onClick={() => window.location.hash = '#/plans'}>Mudar de Plano</Button>
+            <div className="mt-8 space-y-3">
+              <Button variant="outline" fullWidth size="sm" onClick={() => window.location.hash = '#/plans'}>Mudar de Plano</Button>
+              {profile?.stripe_customer_id && (
+                <Button 
+                  variant="ghost" 
+                  fullWidth 
+                  size="sm" 
+                  icon="payments" 
+                  loading={portalLoading}
+                  onClick={handleManageBilling}
+                  className="text-primary hover:bg-primary/5"
+                >
+                  Gerenciar Cartão / Cancelar
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="bg-surface-dark border border-border-dark p-6 rounded-[32px] shadow-xl text-left">
@@ -127,7 +156,6 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Lado Direito: Formulário de Perfil */}
         <div className="md:col-span-2 space-y-6">
           <form onSubmit={handleUpdateProfile} className="bg-surface-dark border border-border-dark p-8 rounded-[40px] shadow-2xl space-y-8 text-left">
             <h3 className="text-xl font-bold text-white flex items-center gap-3">
@@ -171,7 +199,7 @@ const Settings: React.FC = () => {
                <span className="material-symbols-outlined text-sm">warning</span>
                Zona de Perigo
             </h4>
-            <p className="text-slate-500 text-xs leading-relaxed">Ao excluir sua conta, todos os seus projetos, roteiros e créditos serão permanentemente removidos. Esta ação não pode ser desfeita e os créditos restantes não serão reembolsados.</p>
+            <p className="text-slate-500 text-xs leading-relaxed">Ao excluir sua conta, todos os seus projetos, roteiros e créditos serão permanentemente removidos.</p>
             <Button 
               variant="danger" 
               size="sm" 

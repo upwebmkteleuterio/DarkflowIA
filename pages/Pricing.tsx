@@ -1,7 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import PaymentModal from '../components/Pricing/PaymentModal';
 
@@ -17,216 +19,144 @@ interface Plan {
   stripe_price_id?: string;
 }
 
+const PIX_CACHE_KEY = 'darkflow_active_pix';
+
 const Pricing: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [checkingPix, setCheckingPix] = useState(false);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<Plan | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'canceled' | null>(null);
+  const [pendingPix, setPendingPix] = useState<any>(null);
+  
   const { profile, user, refreshProfile } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     const fetchPlans = async () => {
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .order('price', { ascending: true });
-      
+      const { data, error } = await supabase.from('plans').select('*').order('price', { ascending: true });
       if (!error && data) setPlans(data);
       setLoading(false);
     };
 
     const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('success') === 'true') setPaymentStatus('success');
     
-    if (searchParams.get('success') === 'true') {
-      setPaymentStatus('success');
-      refreshProfile();
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
-    }
-    
-    if (searchParams.get('canceled') === 'true') {
-      setPaymentStatus('canceled');
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
+    const cached = localStorage.getItem(PIX_CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.userId === user?.id) {
+           const expiry = new Date(parsed.pix.expiresAt).getTime();
+           if (expiry > Date.now()) setPendingPix(parsed);
+        }
+      } catch (e) { localStorage.removeItem(PIX_CACHE_KEY); }
     }
 
     fetchPlans();
-  }, [location.search, refreshProfile]);
+  }, [location.search, user?.id]);
+
+  const handleCheckPendingPix = async () => {
+    if (!pendingPix) return;
+    setCheckingPix(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('check-pix-status', {
+        body: { pixId: pendingPix.pix.id, userId: user?.id, planId: pendingPix.planId }
+      });
+      if (error) throw error;
+      if (data.status === 'PAID') {
+        alert("Pagamento confirmado!");
+        localStorage.removeItem(PIX_CACHE_KEY);
+        setPendingPix(null);
+        await refreshProfile();
+        setPaymentStatus('success');
+      } else {
+        alert("Pagamento ainda pendente no banco.");
+      }
+    } catch (err: any) { alert("Erro ao verificar: " + err.message); }
+    finally { setCheckingPix(false); }
+  };
 
   const handleOpenCheckout = (plan: Plan) => {
-    if (!user) {
-      window.location.hash = '#/login';
-      return;
-    }
+    if (!user) { window.location.hash = '#/login'; return; }
     setSelectedPlanForCheckout(plan);
   };
 
   const handleStripeCheckout = async () => {
     if (!selectedPlanForCheckout || !user) return;
-    
-    if (!selectedPlanForCheckout.stripe_price_id) {
-        alert("Este plano ainda não foi configurado com um ID do Stripe no banco de dados.");
-        return;
-    }
-
     setProcessingPayment(true);
-    console.log(`[STRIPE] Chamando Edge Function para o plano: ${selectedPlanForCheckout.name}`);
-
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: { 
-          priceId: selectedPlanForCheckout.stripe_price_id,
-          userId: user.id,
-          returnUrl: window.location.origin
-        }
+        body: { priceId: selectedPlanForCheckout.stripe_price_id, userId: user.id, returnUrl: window.location.origin }
       });
-
-      if (error) {
-        console.error("[EDGE ERROR DETAIL]", error);
-        
-        // Tenta pegar a mensagem de erro que nossa função enviou no JSON
-        let errorMessage = "Erro na comunicação com o servidor.";
-        if (error instanceof Error) errorMessage = error.message;
-        
-        // Em funções Edge, o erro às vezes vem envelopado no context
-        if ((error as any).context) {
-           try {
-             const body = await (error as any).context.json();
-             if (body?.error) errorMessage = body.error;
-           } catch(e) {}
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      if (data?.url) {
-        console.log("[STRIPE] URL de pagamento recebida. Redirecionando...");
-        window.location.href = data.url;
-      } else {
-        throw new Error("A resposta do servidor não continha uma URL válida.");
-      }
-    } catch (err: any) {
-      console.error("[CHECKOUT ERROR]", err);
-      alert("Falha no Checkout: " + err.message);
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  const handlePixCheckout = () => {
-    alert("Opção PIX: No momento o PIX é processado manualmente. Chame o suporte informando o plano desejado.");
-    setSelectedPlanForCheckout(null);
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+    } catch (err: any) { alert("Falha: " + err.message); }
+    finally { setProcessingPayment(false); }
   };
 
   return (
     <div className="max-w-[1200px] mx-auto w-full px-6 py-10 animate-in fade-in duration-700">
       
+      {/* ALERTA DE TOPO: PIX PENDENTE */}
+      {pendingPix && !paymentStatus && (
+        <div className="mb-10 p-6 bg-accent-green/10 border-2 border-accent-green/30 rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(57,255,20,0.1)] animate-in slide-in-from-top-10 duration-500">
+          <div className="flex items-center gap-5 text-left">
+            <div className="size-14 bg-accent-green rounded-2xl flex items-center justify-center text-black shadow-lg"><span className="material-symbols-outlined text-3xl font-black">pix</span></div>
+            <div>
+              <h4 className="text-white font-black uppercase italic tracking-tight">Pagamento Pendente Detectado</h4>
+              <p className="text-slate-400 text-xs">Você possui um QR Code ativo. Clique para validar sua assinatura agora.</p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+             <Button variant="success" size="lg" loading={checkingPix} onClick={handleCheckPendingPix} className="flex-1 md:flex-none py-4 px-8 shadow-xl shadow-accent-green/20">
+                Já paguei, liberar créditos!
+             </Button>
+             <Button variant="outline" size="lg" onClick={() => {
+                const plan = plans.find(p => p.id === pendingPix.planId);
+                if (plan) handleOpenCheckout(plan);
+             }}>Ver QR Code</Button>
+          </div>
+        </div>
+      )}
+
       {paymentStatus === 'success' && (
         <div className="mb-10 p-6 bg-accent-green/10 border border-accent-green/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
-           <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black">
-              <span className="material-symbols-outlined font-black">check</span>
-           </div>
-           <div className="text-left">
-              <h4 className="text-white font-black uppercase italic">Pagamento Confirmado!</h4>
-              <p className="text-slate-400 text-xs">Sua assinatura foi ativada e seus créditos já foram creditados.</p>
-           </div>
-           <button onClick={() => setPaymentStatus(null)} className="ml-auto text-slate-500 hover:text-white">
-              <span className="material-symbols-outlined">close</span>
-           </button>
+           <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black"><span className="material-symbols-outlined font-black">check</span></div>
+           <div className="text-left"><h4 className="text-white font-black uppercase italic">Assinatura Ativada!</h4><p className="text-slate-400 text-xs">Seus créditos já foram liberados em sua conta.</p></div>
         </div>
       )}
 
-      {paymentStatus === 'canceled' && (
-        <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
-           <div className="size-12 bg-red-500 rounded-full flex items-center justify-center text-white">
-              <span className="material-symbols-outlined font-black">close</span>
-           </div>
-           <div className="text-left">
-              <h4 className="text-white font-black uppercase italic">Pagamento Cancelado</h4>
-              <p className="text-slate-400 text-xs">O processo de checkout foi interrompido.</p>
-           </div>
-           <button onClick={() => setPaymentStatus(null)} className="ml-auto text-slate-500 hover:text-white">
-              <span className="material-symbols-outlined">close</span>
-           </button>
-        </div>
-      )}
-
-      <div className="flex flex-wrap justify-between items-end gap-6 mb-12 text-center md:text-left">
-        <div className="flex flex-col gap-3 max-w-2xl">
-          <h2 className="text-white text-5xl font-black leading-tight tracking-tight font-display uppercase text-left">Planos & <span className="text-primary italic">Créditos</span></h2>
-          <p className="text-slate-400 text-lg text-left">Turbine seus canais dark com inteligência artificial de ponta e escale sua produção.</p>
-        </div>
+      <div className="text-center md:text-left mb-16">
+        <h2 className="text-white text-5xl font-black leading-tight tracking-tight font-display uppercase">Planos & <span className="text-primary italic">Créditos</span></h2>
+        <p className="text-slate-400 text-lg mt-2">Escolha a potência ideal para sua fábrica de vídeos.</p>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-96 bg-surface-dark border border-border-dark rounded-3xl animate-pulse"></div>
-          ))}
+          {[1,2,3].map(i => <div key={i} className="h-96 bg-surface-dark border border-border-dark rounded-[40px] animate-pulse"></div>)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 items-stretch">
-          {(plans || []).map((plan) => {
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {plans.map((plan) => {
             const isCurrentPlan = profile?.plan_id === plan.id || (plan.type === 'free' && !profile?.plan_id);
-
             return (
-              <div 
-                key={plan.id} 
-                className={`flex flex-col gap-8 rounded-[40px] border p-10 transition-all duration-500 hover:shadow-2xl relative group ${
-                  plan.price > 0 && plan.price < 200 
-                  ? 'border-primary bg-primary/5 shadow-2xl shadow-primary/10 md:scale-105 z-10' 
-                  : 'border-border-dark bg-surface-dark hover:border-primary/30'
-                }`}
-              >
-                {plan.price > 0 && plan.price < 200 && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black uppercase px-6 py-1.5 rounded-full shadow-lg">
-                    Mais Popular
-                  </div>
-                )}
-
-                <div className="space-y-2 text-left">
+              <div key={plan.id} className={`flex flex-col gap-8 rounded-[40px] border p-10 transition-all duration-500 hover:shadow-2xl relative ${plan.price > 0 && plan.price < 200 ? 'border-primary bg-primary/5 shadow-2xl md:scale-105 z-10' : 'border-border-dark bg-surface-dark'}`}>
+                <div className="text-left space-y-2">
                   <h3 className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-white text-5xl font-black tracking-tighter">R$ {plan.price}</span>
-                    <span className="text-slate-500 text-sm font-bold">/mês</span>
-                  </div>
+                  <div className="flex items-baseline gap-1"><span className="text-white text-5xl font-black tracking-tighter">R$ {plan.price}</span><span className="text-slate-500 text-sm font-bold">/mês</span></div>
                 </div>
-
-                <div className="grid grid-cols-1 gap-3 p-6 bg-background-dark/50 rounded-3xl border border-dashed border-border-dark group-hover:border-primary/40 transition-colors">
-                  <div className="text-primary text-xl font-black flex items-center justify-between">
-                    <span>{plan.text_credits}</span>
-                    <span className="text-[9px] text-slate-500 uppercase tracking-widest">Créditos de Texto</span>
-                  </div>
-                  <div className="text-accent-green text-xl font-black flex items-center justify-between">
-                    <span>{plan.image_credits}</span>
-                    <span className="text-[9px] text-slate-500 uppercase tracking-widest">Créditos de Imagem</span>
-                  </div>
+                <div className="grid grid-cols-1 gap-3 p-6 bg-background-dark/50 rounded-3xl border border-dashed border-border-dark">
+                  <div className="text-primary text-xl font-black flex items-center justify-between"><span>{plan.text_credits}</span><span className="text-[9px] text-slate-500 uppercase tracking-widest">Roteiros</span></div>
+                  <div className="text-accent-green text-xl font-black flex items-center justify-between"><span>{plan.image_credits}</span><span className="text-[9px] text-slate-500 uppercase tracking-widest">Imagens</span></div>
                 </div>
-
                 <div className="space-y-4 flex-1 text-left">
-                  <div className="flex items-center gap-3 text-xs font-bold text-white bg-primary/10 p-2 rounded-xl border border-primary/20">
-                     <span className="material-symbols-outlined text-primary">schedule</span>
-                     1 Crédito = {plan.minutes_per_credit} min
-                  </div>
-                  {(plan.features || []).map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-3 text-sm text-slate-300">
-                      <span className="material-symbols-outlined text-primary text-lg">verified</span>
-                      {feature}
-                    </div>
-                  ))}
+                  <div className="text-xs font-bold text-white bg-primary/10 p-3 rounded-xl border border-primary/20 flex items-center gap-2"><span className="material-symbols-outlined text-primary">schedule</span>1 Crédito = {plan.minutes_per_credit} min</div>
+                  {(plan.features || []).map((f, i) => <div key={i} className="flex items-center gap-3 text-sm text-slate-300"><span className="material-symbols-outlined text-primary text-lg">verified</span>{f}</div>)}
                 </div>
-
-                <button 
-                  disabled={isCurrentPlan}
-                  onClick={() => handleOpenCheckout(plan)}
-                  className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-xl ${
-                  isCurrentPlan
-                  ? 'bg-slate-800 text-slate-500 cursor-default'
-                  : plan.price > 0 && plan.price < 200
-                    ? 'bg-primary text-white hover:bg-primary-hover shadow-primary/30'
-                    : 'bg-white text-black hover:bg-slate-200'
-                }`}>
-                  {isCurrentPlan ? 'Plano Atual' : 'Assinar Plano'}
+                <button disabled={isCurrentPlan} onClick={() => handleOpenCheckout(plan)} className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-xl ${isCurrentPlan ? 'bg-slate-800 text-slate-500' : 'bg-primary text-white hover:bg-primary-hover shadow-primary/30'}`}>
+                  {isCurrentPlan ? 'Plano Atual' : 'Assinar Agora'}
                 </button>
               </div>
             );
@@ -234,29 +164,8 @@ const Pricing: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-surface-dark border border-border-dark p-10 rounded-[48px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl border-dashed">
-         <div className="flex items-center gap-6">
-            <div className="bg-primary/20 size-16 rounded-full flex items-center justify-center text-primary border border-primary/20">
-               <span className="material-symbols-outlined text-4xl">pix</span>
-            </div>
-            <div className="text-left">
-               <h4 className="text-xl font-black text-white uppercase italic">Pagamento via PIX</h4>
-               <p className="text-slate-500 text-sm">Liberação instantânea de créditos após a confirmação do pagamento manual.</p>
-            </div>
-         </div>
-         <button className="px-10 py-4 bg-white/5 border border-white/10 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-white/10 transition-all">
-            Verificar Renovação
-         </button>
-      </div>
-
       {selectedPlanForCheckout && (
-        <PaymentModal 
-          plan={selectedPlanForCheckout}
-          loading={processingPayment}
-          onClose={() => setSelectedPlanForCheckout(null)}
-          onSelectStripe={handleStripeCheckout}
-          onSelectPix={handlePixCheckout}
-        />
+        <PaymentModal plan={selectedPlanForCheckout} loading={processingPayment} onClose={() => setSelectedPlanForCheckout(null)} onSelectStripe={handleStripeCheckout} />
       )}
     </div>
   );

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Session } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
@@ -13,9 +12,10 @@ interface UserProfile {
   image_credits: number;
   subscription_status: string;
   plan_id: string;
+  cellphone?: string; // Novo
+  tax_id?: string;    // Novo
   minutes_per_credit?: number;
   max_duration_limit?: number;
-  // Added missing field to support renewal date display in Settings.tsx
   current_period_end?: string;
   stripe_customer_id?: string;
 }
@@ -45,7 +45,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchingProfileId.current = userId;
 
     try {
-      console.log("[AUTH] Buscando perfil no banco (Assíncrono)...");
       const { data, error } = await supabase
         .from('profiles')
         .select('*, plans(*)')
@@ -55,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("[AUTH] Erro ao buscar perfil:", error.message);
       } else if (data) {
-        console.log("[AUTH] Perfil carregado com sucesso.");
         setProfile({
           ...data,
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
@@ -76,39 +74,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log("[AUTH] Verificando sessão local...");
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
         if (initialSession?.user) {
-          console.log("[AUTH] Token validado:", initialSession.user.email);
           setSession(initialSession);
           setUser(initialSession.user);
-          
-          // PONTO CHAVE: Disparamos a busca do perfil MAS NÃO usamos 'await'
-          // Isso libera a interface (isLoading vira false) imediatamente
           fetchProfile(initialSession.user.id);
-          
           setIsLoading(false);
         } else {
-          console.log("[AUTH] Nenhuma sessão ativa no dispositivo.");
           setIsLoading(false);
         }
       } catch (e) {
-        console.error("[AUTH] Erro na inicialização do Auth:", e);
         setIsLoading(false);
       }
     };
-
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log("[AUTH] Evento de Sessão:", event);
-      
       if (newSession?.user) {
         setSession(newSession);
         setUser(newSession.user);
-        setIsLoading(false); // Garante liberação em logins manuais
-        
+        setIsLoading(false);
         if (!profile || profile.id !== newSession.user.id) {
           fetchProfile(newSession.user.id);
         }
@@ -119,17 +104,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
       }
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    console.log("[AUTH] Saindo...");
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {}
+    try { await supabase.auth.signOut(); } catch (e) {}
     setProfile(null);
     setUser(null);
     setSession(null);
@@ -137,11 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.hash = '#/login';
   };
 
-  const status: AuthStatus = isLoading 
-    ? 'loading' 
-    : user 
-      ? 'authenticated' 
-      : 'unauthenticated';
+  const status: AuthStatus = isLoading ? 'loading' : user ? 'authenticated' : 'unauthenticated';
 
   return (
     <AuthContext.Provider value={{ user, profile, session, status, isLoading, signOut, refreshProfile }}>
@@ -152,8 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   return context;
 };
