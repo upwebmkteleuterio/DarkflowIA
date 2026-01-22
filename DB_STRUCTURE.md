@@ -16,15 +16,18 @@
 3. **`create-checkout-session`**: Inicia checkout via Stripe (Cartão).
 4. **`create-pix-payment`**: Gera QR Code PIX via Abacate Pay.
 5. **`stripe-webhook`**: Processa renovações e eventos do Stripe.
-6. **`create-portal-session`**: (NOVA) Gera o link para o usuário cancelar ou gerenciar o cartão no Stripe.
+6. **`create-portal-session`**: Gera o link para o usuário gerenciar o cartão no Stripe.
 
-## 👤 Tabela: `public.profiles` (Colunas Adicionais)
+## 👤 Tabela: `public.profiles`
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
-| cellphone | TEXT | Telefone formatado para faturamento. |
+| cellphone | TEXT | Telefone para faturamento. |
 | tax_id | TEXT | CPF/CNPJ para faturamento. |
-| stripe_customer_id | TEXT | ID do cliente no Stripe (Necessário para o Portal). |
+| stripe_customer_id | TEXT | ID do cliente no Stripe. |
+
+## ⚙️ Triggers de Automação (SQL Atualizado)
+A trigger `on_auth_user_created` foi corrigida para incluir o `plan_id` obrigatório e valores padrão para novos registros, evitando erros 500 ao criar usuários diretamente pelo Supabase ou pelo App.
 
 ## 📊 Lógica de Automação
 - O faturamento via PIX exige Nome, Celular e CPF salvos no perfil.
-- O cancelamento de cartão é feito via Stripe Billing Portal, garantindo conformidade com leis de assinatura.
+- O cancelamento de cartão é feito via Stripe Billing Portal.

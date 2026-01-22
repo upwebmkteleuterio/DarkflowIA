@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Badge from '../components/ui/Badge';
@@ -33,6 +33,29 @@ const Pricing: React.FC = () => {
   const { profile, user, refreshProfile } = useAuth();
   const location = useLocation();
 
+  const checkPendingPix = useCallback(() => {
+    const cached = localStorage.getItem(PIX_CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.userId === user?.id) {
+           const expiry = new Date(parsed.pix.expiresAt).getTime();
+           if (expiry > Date.now()) {
+             setPendingPix(parsed);
+           } else {
+             localStorage.removeItem(PIX_CACHE_KEY);
+             setPendingPix(null);
+           }
+        }
+      } catch (e) { 
+        localStorage.removeItem(PIX_CACHE_KEY); 
+        setPendingPix(null);
+      }
+    } else {
+      setPendingPix(null);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     const fetchPlans = async () => {
       const { data, error } = await supabase.from('plans').select('*').order('price', { ascending: true });
@@ -43,19 +66,9 @@ const Pricing: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.get('success') === 'true') setPaymentStatus('success');
     
-    const cached = localStorage.getItem(PIX_CACHE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed.userId === user?.id) {
-           const expiry = new Date(parsed.pix.expiresAt).getTime();
-           if (expiry > Date.now()) setPendingPix(parsed);
-        }
-      } catch (e) { localStorage.removeItem(PIX_CACHE_KEY); }
-    }
-
     fetchPlans();
-  }, [location.search, user?.id]);
+    checkPendingPix();
+  }, [location.search, checkPendingPix]);
 
   const handleCheckPendingPix = async () => {
     if (!pendingPix) return;
@@ -66,13 +79,13 @@ const Pricing: React.FC = () => {
       });
       if (error) throw error;
       if (data.status === 'PAID') {
-        alert("Pagamento confirmado!");
         localStorage.removeItem(PIX_CACHE_KEY);
         setPendingPix(null);
         await refreshProfile();
         setPaymentStatus('success');
       } else {
-        alert("Pagamento ainda pendente no banco.");
+        // Mensagem via estado e não alert
+        alert("Pagamento ainda pendente no banco. Se já pagou, aguarde 30 segundos.");
       }
     } catch (err: any) { alert("Erro ao verificar: " + err.message); }
     finally { setCheckingPix(false); }
@@ -81,6 +94,12 @@ const Pricing: React.FC = () => {
   const handleOpenCheckout = (plan: Plan) => {
     if (!user) { window.location.hash = '#/login'; return; }
     setSelectedPlanForCheckout(plan);
+  };
+
+  const handleCloseCheckout = () => {
+    setSelectedPlanForCheckout(null);
+    // CRÍTICO: Recalcular PIX pendente IMEDIATAMENTE ao fechar
+    checkPendingPix();
   };
 
   const handleStripeCheckout = async () => {
@@ -103,7 +122,7 @@ const Pricing: React.FC = () => {
       {pendingPix && !paymentStatus && (
         <div className="mb-10 p-6 bg-accent-green/10 border-2 border-accent-green/30 rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_0_40px_rgba(57,255,20,0.1)] animate-in slide-in-from-top-10 duration-500">
           <div className="flex items-center gap-5 text-left">
-            <div className="size-14 bg-accent-green rounded-2xl flex items-center justify-center text-black shadow-lg"><span className="material-symbols-outlined text-3xl font-black">pix</span></div>
+            <div className="size-14 bg-accent-green rounded-2xl flex items-center justify-center text-black shadow-lg shadow-accent-green/20 animate-pulse"><span className="material-symbols-outlined text-3xl font-black">pix</span></div>
             <div>
               <h4 className="text-white font-black uppercase italic tracking-tight">Pagamento Pendente Detectado</h4>
               <p className="text-slate-400 text-xs">Você possui um QR Code ativo. Clique para validar sua assinatura agora.</p>
@@ -123,7 +142,7 @@ const Pricing: React.FC = () => {
 
       {paymentStatus === 'success' && (
         <div className="mb-10 p-6 bg-accent-green/10 border border-accent-green/20 rounded-[32px] flex items-center gap-4 animate-in zoom-in-95 duration-500">
-           <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black"><span className="material-symbols-outlined font-black">check</span></div>
+           <div className="size-12 bg-accent-green rounded-full flex items-center justify-center text-black shadow-lg"><span className="material-symbols-outlined font-black">check</span></div>
            <div className="text-left"><h4 className="text-white font-black uppercase italic">Assinatura Ativada!</h4><p className="text-slate-400 text-xs">Seus créditos já foram liberados em sua conta.</p></div>
         </div>
       )}
@@ -165,7 +184,12 @@ const Pricing: React.FC = () => {
       )}
 
       {selectedPlanForCheckout && (
-        <PaymentModal plan={selectedPlanForCheckout} loading={processingPayment} onClose={() => setSelectedPlanForCheckout(null)} onSelectStripe={handleStripeCheckout} />
+        <PaymentModal 
+          plan={selectedPlanForCheckout} 
+          loading={processingPayment} 
+          onClose={handleCloseCheckout} 
+          onSelectStripe={handleStripeCheckout} 
+        />
       )}
     </div>
   );
