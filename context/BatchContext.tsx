@@ -14,6 +14,7 @@ interface BatchContextType {
   state: BatchState;
   addToQueue: (project: Project, itemIds: string[], type: BatchType, config?: any, onSuccess?: (itemId: string, data: any) => void) => void;
   clearQueue: () => void;
+  cancelQueue: () => void;
   stopProcessing: () => void;
   getTaskStatus: (itemId: string, type: BatchType) => BatchTask | undefined;
 }
@@ -26,29 +27,36 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     tasks: [],
     isProcessing: false,
     currentTaskId: null,
-    stats: { total: 0, completed: 0, failed: 0, percent: 0 }
+    stats: { total: 0, completed: 0, failed: 0, cancelled: 0, percent: 0 }
   });
 
   const isProcessingRef = useRef(false);
+  const currentTaskIdRef = useRef<string | null>(null);
 
-  // Sincroniza estatísticas
   useEffect(() => {
     const total = state.tasks.length;
     if (total === 0) {
-      setState(prev => ({ ...prev, stats: { total: 0, completed: 0, failed: 0, percent: 0 } }));
+      setState(prev => ({ ...prev, stats: { total: 0, completed: 0, failed: 0, cancelled: 0, percent: 0 } }));
       return;
     }
     const completed = state.tasks.filter(t => t.status === 'completed').length;
     const failed = state.tasks.filter(t => t.status === 'failed').length;
-    const percent = Math.round(((completed + failed) / total) * 100);
-    setState(prev => ({ ...prev, stats: { total, completed, failed, percent } }));
+    const cancelled = state.tasks.filter(t => t.status === 'cancelled').length;
+    const percent = Math.round(((completed + failed + cancelled) / total) * 100);
+    
+    setState(prev => ({ 
+      ...prev, 
+      stats: { total, completed, failed, cancelled, percent } 
+    }));
   }, [state.tasks]);
 
-  const processTask = async (task: ExtendedBatchTask, project: any): Promise<{ status: 'completed' | 'failed', data?: any, error?: string }> => {
+  const processTask = async (task: ExtendedBatchTask, project: any): Promise<{ status: 'completed' | 'failed' | 'cancelled', data?: any, error?: string }> => {
     if (!user || !profile) return { status: 'failed', error: 'Usuário não autenticado' };
+    
+    // Verifica se a tarefa foi cancelada logo antes de começar
+    if (!isProcessingRef.current || task.status === 'cancelled') return { status: 'cancelled' };
 
     try {
-      // LOGICA DE ROTEIRO
       if (task.type === 'script') {
         await supabase.from('script_items').update({ status: 'generating' }).eq('id', task.itemId);
         const minutesPerCredit = profile.minutes_per_credit || 30;
@@ -68,6 +76,9 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           project.base_theme
         );
 
+        // Verifica cancelamento após a chamada longa da IA
+        if (!isProcessingRef.current) return { status: 'cancelled' };
+
         const { data: success } = await supabase.rpc('deduct_text_credits', { user_id: user.id, amount: creditsToDeduct });
         if (!success) throw new Error("Erro no pagamento de créditos.");
 
@@ -76,14 +87,12 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { status: 'completed', data: script };
       }
 
-      // LOGICA DE THUMBNAIL
       if (task.type === 'thumbnail') {
         await supabase.from('script_items').update({ thumb_status: 'generating' }).eq('id', task.itemId);
         
         const variations = task.config?.variations || 1;
         if ((profile.image_credits ?? 0) < variations) throw new Error("Saldo de imagens insuficiente.");
 
-        // Busca o item para ter o roteiro caso seja modo auto
         const { data: item } = await supabase.from('script_items').select('*').eq('id', task.itemId).single();
         
         let finalPrompt = task.config?.prompt || item?.title;
@@ -91,14 +100,21 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           finalPrompt = await generateScenePrompt(item?.title || "", item?.script || "", task.config?.style || 'realistic');
         }
 
+        const finalVisualTitle = task.config?.titleOnArt || item?.title;
+
         const publicUrls: string[] = [];
         for (let i = 0; i < variations; i++) {
-          const base64 = await generateThumbnail(finalPrompt, task.config?.style || 'realistic', item?.title);
+          // Check cancellation mid-variations loop
+          if (!isProcessingRef.current) break;
+
+          const base64 = await generateThumbnail(finalPrompt, task.config?.style || 'realistic', finalVisualTitle);
           if (base64) {
             const url = await uploadThumbnail(user.id, task.itemId, base64);
             publicUrls.push(url);
           }
         }
+
+        if (publicUrls.length === 0 && !isProcessingRef.current) return { status: 'cancelled' };
 
         const { data: successImg } = await supabase.rpc('deduct_image_credits', { user_id: user.id, amount: publicUrls.length });
         if (!successImg) throw new Error("Erro no pagamento de imagens.");
@@ -139,6 +155,8 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const nextTask = state.tasks[nextTaskIndex];
 
       isProcessingRef.current = true;
+      currentTaskIdRef.current = nextTask.id;
+      
       setState(prev => ({ 
         ...prev, 
         isProcessing: true, 
@@ -149,7 +167,6 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { data: projectData } = await supabase.from('projects').select('*').eq('id', nextTask.projectId).single();
       const result = await processTask(nextTask, projectData);
 
-      // Chamar o callback de sucesso imediatamente se houver dados e for sucesso
       if (result.status === 'completed' && nextTask.onSuccess) {
         nextTask.onSuccess(result.data);
       }
@@ -164,6 +181,7 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
       
       isProcessingRef.current = false;
+      currentTaskIdRef.current = null;
     };
     
     runQueue();
@@ -186,8 +204,31 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const clearQueue = useCallback(() => {
-    setState(prev => ({ ...prev, tasks: [], isProcessing: false, currentTaskId: null, stats: { total: 0, completed: 0, failed: 0, percent: 0 } }));
+    setState(prev => ({ ...prev, tasks: [], isProcessing: false, currentTaskId: null, stats: { total: 0, completed: 0, failed: 0, cancelled: 0, percent: 0 } }));
   }, []);
+
+  const cancelQueue = useCallback(async () => {
+    const activeTaskId = currentTaskIdRef.current;
+    isProcessingRef.current = false;
+    
+    // Identifica qual item estava sendo processado para resetar no DB
+    const activeTask = state.tasks.find(t => t.id === activeTaskId);
+    
+    setState(prev => ({
+      ...prev,
+      isProcessing: false,
+      currentTaskId: null,
+      tasks: prev.tasks.map(t => 
+        (t.status === 'pending' || t.id === activeTaskId) ? { ...t, status: 'cancelled' } : t
+      )
+    }));
+
+    // Se houver uma tarefa ativa sendo interrompida, reseta o status dela no Supabase
+    if (activeTask) {
+      const field = activeTask.type === 'script' ? 'status' : 'thumb_status';
+      await supabase.from('script_items').update({ [field]: 'pending' }).eq('id', activeTask.itemId);
+    }
+  }, [state.tasks]);
 
   const stopProcessing = useCallback(() => {
     isProcessingRef.current = false;
@@ -199,7 +240,7 @@ export const BatchProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [state.tasks]);
 
   return (
-    <BatchContext.Provider value={{ state, addToQueue, clearQueue, stopProcessing, getTaskStatus }}>
+    <BatchContext.Provider value={{ state, addToQueue, clearQueue, cancelQueue, stopProcessing, getTaskStatus }}>
       {children}
     </BatchContext.Provider>
   );

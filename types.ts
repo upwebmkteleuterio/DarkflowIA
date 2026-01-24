@@ -70,7 +70,7 @@ export interface BatchTask {
   itemId: string;
   projectId: string;
   type: BatchType;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   error?: string;
   config?: any;
 }
@@ -83,6 +83,7 @@ export interface BatchState {
     total: number;
     completed: number;
     failed: number;
+    cancelled: number;
     percent: number;
   };
 }

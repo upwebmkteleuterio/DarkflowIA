@@ -4,6 +4,7 @@ import { Project, ScriptItem } from '../types';
 import { useScriptQueue } from '../hooks/useScriptQueue';
 import { useBatch } from '../context/BatchContext';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import ScriptConfigPanel from '../components/Script/ScriptConfigPanel';
@@ -17,6 +18,7 @@ interface ScriptProps {
 }
 
 const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
+  const navigate = useNavigate();
   const {
     isProcessing,
     handleStartBatch,
@@ -25,6 +27,9 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
     setShowConfirm,
     totalCost,
     pendingCount,
+    canGenerateCount,
+    isOutOfCredits,
+    availableCredits,
     handleRetry,
     stats
   } = useScriptQueue(project, onUpdate);
@@ -58,7 +63,7 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
 
   const updateItemScript = (text: string) => {
     if (!selectedItemId) return;
-    setIsAutoSaving(true);
+    setIsAutoSaving(text !== selectedItem?.script);
 
     const updatedItems = itemsArray.map(item => 
       item.id === selectedItemId ? { ...item, script: text } : item
@@ -135,33 +140,81 @@ const Script: React.FC<ScriptProps> = ({ project, onUpdate, onNext }) => {
       {showConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-surface-dark border border-border-dark w-full max-w-md p-8 rounded-[32px] shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-            <div className="text-center space-y-2">
-              <div className="size-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20">
-                <span className="material-symbols-outlined text-3xl">payments</span>
-              </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Confirmar Investimento</h3>
-              <p className="text-slate-400 text-xs">Você está prestes a iniciar a produção em massa.</p>
-            </div>
+            
+            {/* ESTADO 1: TOTALMENTE SEM CRÉDITOS */}
+            {isOutOfCredits ? (
+              <>
+                <div className="text-center space-y-4">
+                  <div className="size-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                    <span className="material-symbols-outlined text-4xl">warning</span>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-black text-white uppercase tracking-tight italic">Saldo Insuficiente</h3>
+                    <p className="text-slate-400 text-sm">Você não possui créditos de roteiro suficientes para iniciar esta produção.</p>
+                  </div>
+                </div>
 
-            <div className="bg-background-dark/50 border border-border-dark rounded-2xl p-6 space-y-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-bold uppercase tracking-widest">Vídeos Selecionados</span>
-                <span className="text-white font-black">{pendingCount} itens</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-bold uppercase tracking-widest">Custo do Lote</span>
-                <span className="text-primary font-black">{totalCost} créditos</span>
-              </div>
-              <div className="h-px bg-border-dark"></div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-slate-400 italic">O motor rodará em segundo plano.</span>
-              </div>
-            </div>
+                <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6 text-center">
+                  <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Seu Saldo Atual</p>
+                  <p className="text-3xl font-black text-white">{availableCredits} <span className="text-xs text-slate-500">créditos</span></p>
+                </div>
 
-            <div className="flex flex-col gap-3">
-              <Button size="lg" onClick={confirmBatch}>Iniciar Geração</Button>
-              <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            </div>
+                <div className="flex flex-col gap-3">
+                  <Button size="lg" onClick={() => navigate('/plans')}>Ver Planos & Créditos</Button>
+                  <Button variant="ghost" onClick={() => setShowConfirm(false)}>Agora não</Button>
+                </div>
+              </>
+            ) : (
+              /* ESTADO 2: SALDO DISPONÍVEL (TOTAL OU PARCIAL) */
+              <>
+                <div className="text-center space-y-2">
+                  <div className="size-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20">
+                    <span className="material-symbols-outlined text-3xl">payments</span>
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight italic">Confirmar Produção</h3>
+                  <p className="text-slate-400 text-xs">Abaixo está o resumo do processamento em lote.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-background-dark/50 border border-border-dark rounded-2xl p-6 space-y-4">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold uppercase tracking-widest">Itens na Fila</span>
+                      <span className="text-white font-black">{pendingCount} vídeos</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold uppercase tracking-widest">Saldo Disponível</span>
+                      <span className="text-accent-green font-black">{availableCredits} créditos</span>
+                    </div>
+                    <div className="h-px bg-border-dark"></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Investimento do Lote</span>
+                      <span className="text-primary font-black text-lg">{totalCost} <span className="text-[10px]">créditos</span></span>
+                    </div>
+                  </div>
+
+                  {/* AVISO DE GERAÇÃO PARCIAL */}
+                  {canGenerateCount < pendingCount && (
+                    <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-2xl animate-in shake duration-500">
+                      <div className="flex items-start gap-3">
+                        <span className="material-symbols-outlined text-orange-500">error_outline</span>
+                        <div className="text-left">
+                          <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Atenção: Limite de Saldo</p>
+                          <p className="text-[11px] text-slate-300 leading-tight mt-1">
+                            Você tem <strong>{pendingCount} itens</strong> na fila, mas apenas <strong>{availableCredits} créditos</strong> disponíveis. 
+                            <span className="block mt-1 text-white font-bold">Os últimos {pendingCount - canGenerateCount} vídeos serão ignorados.</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <Button size="lg" onClick={confirmBatch}>Iniciar Geração</Button>
+                  <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancelar</Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

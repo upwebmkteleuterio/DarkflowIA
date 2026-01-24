@@ -19,12 +19,38 @@ const SidebarCredits: React.FC<SidebarCreditsProps> = ({
 }) => {
   const showFull = !isCollapsed || isMobile;
 
-  // Cálculos de porcentagem baseados no plano
-  const textTotal = profile?.plans?.text_credits || 1;
-  const imageTotal = profile?.plans?.image_credits || 1;
+  // O plano vem do JOIN 'plans(*)' realizado no AuthContext
+  const planData = profile?.plans;
+  const isLoadingPlan = profile && !planData; // Perfil existe mas o objeto do plano (JOIN) ainda não
+
+  // Valores reais do banco
+  const textTotal = planData?.text_credits;
+  const imageTotal = planData?.image_credits;
   
-  const textPercent = Math.min(100, Math.max(0, ((profile?.text_credits || 0) / textTotal) * 100));
-  const imagePercent = Math.min(100, Math.max(0, ((profile?.image_credits || 0) / imageTotal) * 100));
+  const currentText = profile?.text_credits ?? 0;
+  const currentImage = profile?.image_credits ?? 0;
+
+  // Porcentagem: Se não tiver o total, fica em 0%
+  const textPercent = textTotal ? Math.min(100, Math.max(0, (currentText / textTotal) * 100)) : 0;
+  const imagePercent = imageTotal ? Math.min(100, Math.max(0, (currentImage / imageTotal) * 100)) : 0;
+
+  const renderValue = (current: number, total: number | undefined) => {
+    if (isLoadingPlan) {
+      return (
+        <div className="flex items-baseline gap-1 animate-pulse">
+          <div className="h-6 w-8 bg-slate-700 rounded"></div>
+          <span className="text-[10px] text-slate-600">/</span>
+          <div className="h-3 w-6 bg-slate-800 rounded"></div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-baseline gap-1">
+        <p className="text-2xl font-black text-white leading-none">{current}</p>
+        <span className="text-[10px] font-bold text-slate-500">/ {total ?? '---'}</span>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 shrink-0 mt-auto">
@@ -35,17 +61,16 @@ const SidebarCredits: React.FC<SidebarCreditsProps> = ({
             {/* Créditos de Texto */}
             <div className="bg-gradient-to-br from-surface-dark to-card-dark border border-border-dark rounded-2xl p-4 shadow-inner group/credit">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Texto</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Roteiros</span>
                 <span className="material-symbols-outlined text-xs text-primary group-hover/credit:rotate-12 transition-transform">description</span>
               </div>
-              <div className="flex items-baseline gap-1 mb-3">
-                <p className="text-2xl font-black text-white leading-none">{profile?.text_credits ?? 0}</p>
-                <span className="text-[10px] font-bold text-slate-500">/ {textTotal}</span>
-              </div>
+              
+              {renderValue(currentText, textTotal)}
+
               {/* Barra de Progresso Texto */}
-              <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden border border-border-dark/50">
+              <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden border border-border-dark/50 mt-3">
                 <div 
-                  className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(134,85,246,0.4)]"
+                  className={`h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(134,85,246,0.4)] ${isLoadingPlan ? 'opacity-20' : ''}`}
                   style={{ width: `${textPercent}%` }}
                 />
               </div>
@@ -57,14 +82,13 @@ const SidebarCredits: React.FC<SidebarCreditsProps> = ({
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Imagens</span>
                 <span className="material-symbols-outlined text-xs text-accent-green group-hover/credit:rotate-12 transition-transform">image</span>
               </div>
-              <div className="flex items-baseline gap-1 mb-3">
-                <p className="text-2xl font-black text-white leading-none">{profile?.image_credits ?? 0}</p>
-                <span className="text-[10px] font-bold text-slate-500">/ {imageTotal}</span>
-              </div>
+              
+              {renderValue(currentImage, imageTotal)}
+
               {/* Barra de Progresso Imagem */}
-              <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden border border-border-dark/50">
+              <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden border border-border-dark/50 mt-3">
                 <div 
-                  className="h-full bg-accent-green transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(57,255,20,0.4)]"
+                  className={`h-full bg-accent-green transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(57,255,20,0.4)] ${isLoadingPlan ? 'opacity-20' : ''}`}
                   style={{ width: `${imagePercent}%` }}
                 />
               </div>
@@ -72,23 +96,21 @@ const SidebarCredits: React.FC<SidebarCreditsProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-3 animate-in fade-in duration-300">
-            {/* Versão Compacta com barra lateral sutil */}
-            <div className="relative group/mini">
-              <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xs border border-primary/20" title={`Texto: ${profile?.text_credits}/${textTotal}`}>
-                {profile?.text_credits ?? 0}
-              </div>
-              <div className="absolute -bottom-1 left-0 right-0 h-1 bg-background-dark rounded-full overflow-hidden">
-                 <div className="h-full bg-primary" style={{ width: `${textPercent}%` }} />
-              </div>
+            {/* Versão Compacta com Loader Simples */}
+            <div className="relative group/mini size-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
+              {isLoadingPlan ? (
+                <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <span className="text-primary font-black text-xs">{currentText}</span>
+              )}
             </div>
             
-            <div className="relative group/mini">
-              <div className="size-10 bg-accent-green/10 rounded-xl flex items-center justify-center text-accent-green font-black text-xs border border-accent-green/20" title={`Imagens: ${profile?.image_credits}/${imageTotal}`}>
-                {profile?.image_credits ?? 0}
-              </div>
-              <div className="absolute -bottom-1 left-0 right-0 h-1 bg-background-dark rounded-full overflow-hidden">
-                 <div className="h-full bg-accent-green" style={{ width: `${imagePercent}%` }} />
-              </div>
+            <div className="relative group/mini size-10 bg-accent-green/10 rounded-xl flex items-center justify-center border border-accent-green/20">
+              {isLoadingPlan ? (
+                <div className="size-4 border-2 border-accent-green border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <span className="text-accent-green font-black text-xs">{currentImage}</span>
+              )}
             </div>
           </div>
         )}
@@ -97,7 +119,7 @@ const SidebarCredits: React.FC<SidebarCreditsProps> = ({
       {/* Seção de Perfil e Sair */}
       <div className={`p-4 md:p-6 border-t border-border-dark ${!showFull ? 'items-center' : ''}`}>
          {showFull ? (
-           <div className="flex items-center justify-between gap-3 animate-in fade-in duration-500">
+           <div className="flex items-center justify-between gap-3 animate-in fade-in duration-500 text-left">
               <Link to="/settings" className="flex items-center gap-3 overflow-hidden flex-1 group">
                  <div className="size-8 rounded-full bg-slate-800 flex items-center justify-center text-primary font-black text-xs flex-shrink-0 border border-border-dark group-hover:border-primary/50 transition-colors">
                     {(profile?.display_name || user?.email)?.charAt(0).toUpperCase()}

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { BatchProvider } from './context/BatchContext';
+import { BatchProvider, useBatch } from './context/BatchContext';
 import { supabase } from './lib/supabase';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -27,8 +27,6 @@ import { Project, ProjectStep } from './types';
 const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> = ({ children, roles }) => {
   const { status, profile, isLoading, user } = useAuth();
   
-  // Se estiver carregando mas já tivermos o 'user' (sessão persistida), permitimos renderizar o shell
-  // Isso resolve o travamento do F5 e a troca de abas.
   if (isLoading && !user) {
     return (
       <div className="min-h-[100dvh] bg-background-dark flex flex-col items-center justify-center gap-4">
@@ -38,12 +36,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode, roles?: string[] }> 
     );
   }
 
-  // Se o carregamento terminou e não há usuário, vai para o login
   if (!isLoading && status === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
-  // Permite acesso se o usuário estiver autenticado, mesmo que o perfil completo esteja a caminho
   if (roles && profile && !roles.includes(profile.role)) {
     return <Navigate to="/" replace />;
   }
@@ -57,16 +53,47 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
   const project = projects.find(p => p.id === id);
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
+  const { state: batchState } = useBatch();
 
   useEffect(() => {
     if (project) setTempTitle(project.name);
   }, [project]);
 
+  // LÓGICA DE PROTEÇÃO CONTRA LIMBO (Orphan Cleanup)
+  useEffect(() => {
+    const cleanupOrphans = async () => {
+      if (!project || !project.items) return;
+
+      const generatingItems = project.items.filter(item => 
+        item.status === 'generating' || item.thumbStatus === 'generating'
+      );
+
+      if (generatingItems.length > 0) {
+        console.log(`[CLEANUP] Detectados ${generatingItems.length} itens possivelmente travados.`);
+        
+        for (const item of generatingItems) {
+          // Se o item está como 'generating' no banco, mas NÃO está na fila ativa do BatchContext do navegador atual
+          const isInActiveQueue = batchState.tasks.some(t => t.itemId === item.id && (t.status === 'pending' || t.status === 'processing'));
+          
+          if (!isInActiveQueue) {
+            console.log(`[CLEANUP] Resetando item órfão: ${item.title}`);
+            const updates: any = {};
+            if (item.status === 'generating') updates.status = 'pending';
+            if (item.thumbStatus === 'generating') updates.thumb_status = 'pending';
+
+            await supabase.from('script_items').update(updates).eq('id', item.id);
+          }
+        }
+      }
+    };
+
+    cleanupOrphans();
+  }, [project?.id, batchState.isProcessing]);
+
   if (!project) return (
     <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-slate-400">
       <span className="material-symbols-outlined text-6xl mb-4 opacity-20">search_off</span>
       <p className="font-bold text-lg">Projeto não encontrado</p>
-      {/* Fix: Changed lowercase link to capitalized Link component */}
       <Link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</Link>
     </div>
   );
@@ -132,7 +159,6 @@ const AppContent: React.FC = () => {
 
   const loadProjects = useCallback(async () => {
     if (!user) return;
-    console.log("[APP] Carregando projetos do usuário:", user.id);
     const { data, error } = await supabase
       .from('projects')
       .select('*, script_items(*)')
@@ -151,13 +177,10 @@ const AppContent: React.FC = () => {
         scriptMode: p.script_mode || 'auto',
         items: p.script_items || [] 
       })));
-    } else if (error) {
-      console.error("[APP] Erro ao carregar projetos:", error.message);
     }
   }, [user]);
 
   useEffect(() => {
-    // Permitimos carregar projetos se o usuário existir, mesmo se isLoading for true
     if (user && (status === 'authenticated' || status === 'loading')) {
       loadProjects();
 
@@ -230,7 +253,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // SPLASH SCREEN: Só aparece se estiver carregando E não tivermos nem o TOKEN do usuário.
   if (isLoading && !user && !isAuthPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">

@@ -20,16 +20,50 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000)
 export const generateScript = async (title: string, niche: string, duration: number, mode: string, tone?: string, retention?: string, winnerTemplate?: string, baseTheme?: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
+    
+    const targetWordCount = duration * 140;
+
+    const winnerInstruction = mode === 'winner' && winnerTemplate 
+      ? `
+      REQUISITO ESPECIAL: MODO CLONAGEM DE ESTRUTURA (WINNER)
+      O usuário forneceu um ROTEIRO VENCEDOR abaixo. 
+      Sua tarefa é fazer uma engenharia reversa deste roteiro para extrair a "FORMA DO BOLO" (a estrutura narrativa, o ritmo, o tempo de cada gancho e a progressão de tópicos).
+      
+      MODELO VENCEDOR PARA CLONAR:
+      ---
+      ${winnerTemplate}
+      ---
+      
+      INSTRUÇÃO: Crie o novo roteiro sobre "${title}" seguindo rigorosamente o molde acima. Mantenha o estilo de escrita e a cadência do modelo, mas mude todo o conteúdo para o novo tema solicitado.`
+      : `
+      ESTRUTURA DE RETENÇÃO: ${retention || 'AIDA'}
+      TOM DE VOZ: ${tone || 'Misterioso'}`;
+
     const prompt = `
-      Escreva um roteiro épico de YouTube para: "${title}". 
-      Duração alvo: ${duration} minutos. Nicho: ${niche}. 
-      Contexto: ${baseTheme}. Regra: Apenas a narração pura.
+      NOME DO VÍDEO: "${title}"
+      NICHO: ${niche}
+      CONTEXTO DO CANAL: ${baseTheme}
+      ${winnerInstruction}
+      
+      REQUISITO 1: COERÊNCIA LINGUÍSTICA (CRÍTICO)
+      Identifique o idioma do "NOME DO VÍDEO". O roteiro gerado DEVE estar exatamente no mesmo idioma do título. 
+      
+      REQUISITO 2: TAMANHO DO ROTEIRO (CRÍTICO)
+      O resultado final desse roteiro DEVE ter aproximadamente ${targetWordCount} palavras. 
+      
+      REQUISITO 3: FORMATO "CLEAN TEXT" (CRÍTICO)
+      Retorne APENAS o texto que será narrado. PROIBIÇÃO ABSOLUTA de incluir explicações de cenas ou marcações.
     `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: { systemInstruction: "Você é um roteirista sênior de canais Dark." }
+      config: { 
+        systemInstruction: "Você é um roteirista bilíngue de alta performance para YouTube. Sua especialidade é detectar padrões em roteiros de sucesso e clonar sua estrutura narrativa para novos temas.",
+        temperature: 0.7 
+      }
     });
+
     return response.text || "";
   });
 };
@@ -38,7 +72,7 @@ export const generateThumbnail = async (prompt: string, style: string, title?: s
   return callWithRetry(async () => {
     const ai = getAI();
     
-    // Prompt reforçado para garantir o texto na imagem
+    // Instrução de texto visual (Título na Arte)
     const textInstruction = title 
       ? `\n\nCRITICAL REQUIREMENT: You MUST overlay the following text clearly on the image: "${title}". 
          The text must be large, bold, and in a high-contrast color that stands out from the background. 
@@ -49,7 +83,7 @@ export const generateThumbnail = async (prompt: string, style: string, title?: s
       parts: [
         { 
           text: `Create a high-impact YouTube Thumbnail. 
-                 Style: ${style}. 
+                 Visual Style: ${style}. 
                  Visual Scene: ${prompt}.${textInstruction}` 
         }
       ] 
@@ -101,58 +135,12 @@ export const generateMetadata = async (title: string, script: string): Promise<{
 export const searchTrends = async (theme: string, country: string): Promise<Trend[]> => {
   return callWithRetry(async () => {
     const ai = getAI();
-    const prompt = `
-      Atue como um analista de tendências virais do YouTube. 
-      Sua tarefa é pesquisar na web usando o Google Search e identificar 5 tendências EMERGENTES e REAIS sobre "${theme}" em "${country}".
-      
-      Regras:
-      1. Use o Google Search para encontrar notícias e tópicos reais que estão subindo em buscas.
-      2. O viralScore deve refletir o quão explosiva é a tendência (0 a 100).
-      3. No campo 'marketGap', explique o que falta nos vídeos atuais sobre esse tema.
-      4. No campo 'reason', explique por que esse tópico está em alta agora (fatores sociais, notícias, memes).
-      5. Inclua fontes reais (links) que comprovam a tendência.
-    `;
-
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: prompt,
-      config: { 
-        tools: [{ googleSearch: {} }], 
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.STRING },
-              topic: { type: Type.STRING, description: "Nome curto e chamativo da tendência" },
-              reason: { type: Type.STRING, description: "Justificativa detalhada do porquê está viralizando" },
-              viralScore: { type: Type.INTEGER, description: "Score de 0 a 100 de potencial viral" },
-              marketGap: { type: Type.STRING, description: "O que os criadores atuais ainda não fizeram sobre isso" },
-              sources: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    uri: { type: Type.STRING }
-                  },
-                  required: ["title", "uri"]
-                }
-              }
-            },
-            required: ["id", "topic", "reason", "viralScore", "marketGap", "sources"]
-          }
-        }
-      }
+      contents: `Identifique 5 tendências EMERGENTES sobre "${theme}" em "${country}".`,
+      config: { tools: [{ googleSearch: {} }] }
     });
-    
-    try {
-      return JSON.parse(response.text || "[]");
-    } catch (e) {
-      console.error("Erro ao parsear JSON de tendências:", e);
-      return [];
-    }
+    return JSON.parse(response.text || "[]");
   });
 };
 
@@ -160,22 +148,8 @@ export const generateTitles = async (niche: string, audience: string, trigger: s
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Gere 5 títulos virais altamente clicáveis para o nicho ${niche} focado em ${audience}. Base: ${baseTheme}. Gatilho: ${trigger}.`,
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-            ctrScore: { type: Type.STRING }
-          },
-          required: ["title", "tags", "ctrScore"]
-        }
-      }
-    }
+    contents: `Gere 5 títulos virais para o nicho ${niche}.`,
+    config: { responseMimeType: "application/json" }
   });
   return JSON.parse(response.text || "[]");
 };
@@ -188,25 +162,12 @@ export const generateSpeech = async (text: string, voiceName: string): Promise<s
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voiceName as any },
-          },
-        },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName as any } } },
       },
     });
-
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("Falha ao gerar áudio");
-
-    const binaryString = atob(base64Audio);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    const blob = new Blob([bytes], { type: 'audio/pcm' });
+    const blob = new Blob([new Uint8Array(atob(base64Audio).split("").map(c => c.charCodeAt(0)))], { type: 'audio/pcm' });
     return URL.createObjectURL(blob);
   });
 };

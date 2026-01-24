@@ -1,16 +1,18 @@
 
 import React from 'react';
-import { TextArea } from '../ui/Input';
+import { TextArea, Input } from '../ui/Input';
 
 interface ThumbnailConfigPanelProps {
   mode: 'auto' | 'manual';
   prompt: string;
   style: string;
   variations: number;
+  titleOnArt: string;
   isProcessing: boolean;
   hasScript?: boolean;
   onModeChange: (mode: 'auto' | 'manual') => void;
   onPromptChange: (prompt: string) => void;
+  onTitleOnArtChange: (title: string) => void;
   onStyleChange: (style: string) => void;
   onVariationsChange: (count: number) => void;
 }
@@ -20,16 +22,17 @@ const ThumbnailConfigPanel: React.FC<ThumbnailConfigPanelProps> = ({
   prompt,
   style,
   variations,
+  titleOnArt,
   isProcessing,
   hasScript = false,
   onModeChange,
   onPromptChange,
+  onTitleOnArtChange,
   onStyleChange,
   onVariationsChange
 }) => {
   return (
     <div className="bg-surface-dark border border-border-dark rounded-[32px] shadow-2xl overflow-hidden shrink-0 flex flex-col">
-      {/* Header do Painel - Padronizado com DNA do Lote */}
       <div className="p-5 border-b border-border-dark bg-card-dark/50 text-left">
         <h3 className="text-lg font-black text-white font-display tracking-tight uppercase italic">
           Configuração <span className="text-primary">Visual</span>
@@ -38,7 +41,20 @@ const ThumbnailConfigPanel: React.FC<ThumbnailConfigPanelProps> = ({
 
       <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar max-h-[600px]">
         
-        {/* Seção: Quantidade - Estilizada como a seção de Duração */}
+        {/* Título na Arte - NOVO CAMPO SOLICITADO */}
+        <section className="space-y-1 text-left">
+          <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Título na Arte</label>
+          <Input 
+            disabled={isProcessing}
+            placeholder="Texto que aparecerá na imagem..."
+            value={titleOnArt}
+            onChange={(e) => onTitleOnArtChange(e.target.value)}
+            className="text-[10px] bg-background-dark/50"
+          />
+          <p className="text-[7px] text-slate-600 font-bold uppercase tracking-widest ml-1 mt-1">Este texto será aplicado visualmente pela IA.</p>
+        </section>
+
+        {/* Quantidade de Imagens */}
         <section className="space-y-3 p-4 rounded-2xl border border-primary/20 bg-primary/5">
           <div className="flex justify-between items-center">
             <label className="text-[9px] font-black text-white uppercase tracking-widest">Quantidade de Imagens</label>
@@ -63,10 +79,9 @@ const ThumbnailConfigPanel: React.FC<ThumbnailConfigPanelProps> = ({
               </button>
             ))}
           </div>
-          <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter text-center opacity-60">1 imagem = 1 crédito</p>
         </section>
 
-        {/* Estratégia: Automático - Padronizado com ScriptConfigPanel */}
+        {/* Estratégia: Automático */}
         <div 
           onClick={() => !isProcessing && onModeChange('auto')} 
           className={`p-4 rounded-2xl border cursor-pointer transition-all text-left ${
@@ -87,11 +102,11 @@ const ThumbnailConfigPanel: React.FC<ThumbnailConfigPanelProps> = ({
           <p className="text-[9px] text-slate-500 leading-tight">
             {hasScript 
               ? 'IA analisará o roteiro para criar a cena.' 
-              : 'Sem roteiro detectado: IA usará apenas o título base.'}
+              : 'IA usará apenas o título base.'}
           </p>
         </div>
 
-        {/* Estratégia: Manual - Padronizado com ScriptConfigPanel */}
+        {/* Estratégia: Manual */}
         <div 
           onClick={() => !isProcessing && onModeChange('manual')} 
           className={`p-4 rounded-2xl border cursor-pointer transition-all text-left ${
@@ -123,7 +138,7 @@ const ThumbnailConfigPanel: React.FC<ThumbnailConfigPanelProps> = ({
           )}
         </div>
 
-        {/* Seção: Estilo Visual - Padronizado com o select do DNA do Lote */}
+        {/* Estilo Visual */}
         <section className="space-y-1 text-left">
           <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Estilo Visual</label>
           <div className="relative group">

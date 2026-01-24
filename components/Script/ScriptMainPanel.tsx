@@ -5,6 +5,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import ScriptEditor from './ScriptEditor';
 import AdvanceButton from '../ui/AdvanceButton';
+import { useBatch } from '../../context/BatchContext';
 
 interface ScriptMainPanelProps {
   selectedItem: ScriptItem | undefined;
@@ -29,6 +30,7 @@ const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
 }) => {
   const [copying, setCopying] = useState(false);
   const editorRef = React.useRef<HTMLDivElement>(null);
+  const { cancelQueue } = useBatch();
 
   // Cálculo de palavras memoizado para performance
   const wordCount = useMemo(() => {
@@ -63,6 +65,7 @@ const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
   };
 
   const statusConfig = getStatusConfig();
+  const isGenerating = selectedItem?.status === 'generating';
 
   return (
     <div className="flex flex-col h-full min-h-[600px] lg:min-h-0 lg:overflow-hidden pb-10 lg:pb-0">
@@ -133,17 +136,30 @@ const ScriptMainPanel: React.FC<ScriptMainPanelProps> = ({
         </div>
 
         {/* Área do Editor - Garantindo rolagem interna */}
-        <div className="flex-1 flex flex-col min-h-[450px] lg:min-h-0 overflow-hidden bg-background-dark/20 rounded-[24px] border border-border-dark/50">
+        <div className="flex-1 flex flex-col min-h-[450px] lg:min-h-0 overflow-hidden bg-background-dark/20 rounded-[24px] border border-border-dark/50 relative">
           <ScriptEditor 
-            loading={selectedItem?.status === 'generating'} 
+            loading={isGenerating} 
             localScript={selectedItem?.script || ''} 
             onContentChange={onUpdateScript}
             editorRef={editorRef}
           />
+
+          {/* Botão de Cancelar dentro do Overlay de IA em Ação */}
+          {isGenerating && (
+            <div className="absolute inset-x-0 bottom-12 flex justify-center z-[30] animate-in slide-in-from-bottom-4 duration-500">
+              <button 
+                onClick={cancelQueue}
+                className="bg-red-500/10 border border-red-500/30 text-red-500 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all shadow-xl shadow-black/50 backdrop-blur-md flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">stop</span>
+                Interromper Geração
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Botão de Avanço */}
-        <div className="shrink-0 mt-6">
+        <div className="shrink-0 mt-6 text-right">
           <AdvanceButton 
             isVisible={stats.completed > 0 && !isProcessing} 
             onClick={onNext} 
