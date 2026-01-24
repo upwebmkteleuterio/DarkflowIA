@@ -1,0 +1,99 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO & Meta Tags -->
+    <title>DarkFlow AI - Automação de YouTube com Inteligência Artificial</title>
+    <meta name="description" content="Crie vídeos virais em escala. Ideação, roteiros épicos, thumbnails magnéticas e SEO otimizado com a inteligência artificial do DarkFlow.">
+    <meta name="keywords" content="automação youtube, canais dark, inteligência artificial, roteiro ai, thumbnail ai">
+    <meta name="author" content="DarkFlow AI">
+    
+    <!-- Browser UI & Header Color -->
+    <meta name="theme-color" content="#0f0f12">
+    <link rel="icon" type="image/svg+xml" href="https://api.iconify.design/solar:rocket-2-bold-duotone.svg?color=%238655f6">
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8655f6",
+                        "primary-hover": "#743df5",
+                        "accent-green": "#39FF14",
+                        "background-dark": "#0f0f12",
+                        "surface-dark": "#1e1e24",
+                        "card-dark": "#1a1626",
+                        "border-dark": "#2d2839",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"],
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    animation: {
+                        'pulse-glow': 'pulse-glow 2.5s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: '0.6', transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(57, 255, 20, 0.4)' },
+                            '50%': { opacity: '0.3', transform: 'scale(1.05)', boxShadow: '0 0 30px 10px rgba(57, 255, 20, 0.2)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root { --bg-dark: #0f0f12; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); margin: 0; }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1a1626; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2d2839; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8655f6; }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 18px; width: 18px; border-radius: 50%;
+          background: #8655f6; cursor: pointer; margin-top: -6px;
+          box-shadow: 0 0 10px rgba(134, 85, 246, 0.5); border: 2px solid white;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-background-dark text-slate-100 antialiased">
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

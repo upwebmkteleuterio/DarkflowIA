@@ -14,6 +14,36 @@ const Register: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const handleGoogleRegister = async () => {
+    setLoading(true);
+    setError(null);
+    console.log("[DEBUG] Iniciando cadastro via Google...");
+
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      
+      if (authError) {
+        console.error("[DEBUG] Erro no Supabase:", authError);
+        throw authError;
+      }
+
+      console.log("[DEBUG] Resposta do Supabase:", data);
+    } catch (err: any) {
+      console.error("[DEBUG] Erro capturado:", err);
+      setError(`Erro Google: ${err.message || 'Verifique as configurações do OAuth'}`);
+      setLoading(false);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -33,7 +63,6 @@ const Register: React.FC = () => {
       setError(error.message);
       setLoading(false);
     } else {
-      // O Supabase pode exigir confirmação de e-mail dependendo da config
       if (data.session) {
         navigate('/');
       } else {
@@ -44,7 +73,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background-dark p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background-dark p-6 relative overflow-hidden text-left">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-20 size-96 bg-primary/10 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-1/4 -right-20 size-96 bg-primary/5 rounded-full blur-[120px]"></div>
@@ -59,7 +88,7 @@ const Register: React.FC = () => {
           <p className="text-slate-500 mt-2">Comece a automatizar seus canais hoje mesmo.</p>
         </div>
 
-        <form onSubmit={handleRegister} className="bg-surface-dark border border-border-dark p-8 rounded-[32px] shadow-2xl space-y-6">
+        <div className="bg-surface-dark border border-border-dark p-8 rounded-[32px] shadow-2xl space-y-6">
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">error</span>
@@ -67,60 +96,80 @@ const Register: React.FC = () => {
             </div>
           )}
 
-          <Input 
-            label="Nome Completo"
-            type="text"
-            placeholder="Seu Nome"
-            icon="person"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-
-          <Input 
-            label="E-mail"
-            type="email"
-            placeholder="seu@email.com"
-            icon="mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <div className="relative">
-            <Input 
-              label="Senha"
-              type={showPassword ? "text" : "password"}
-              placeholder="Min. 6 caracteres"
-              icon="lock"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <button 
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-[38px] text-slate-500 hover:text-white transition-colors"
-            >
-              <span className="material-symbols-outlined text-xl">
-                {showPassword ? 'visibility_off' : 'visibility'}
-              </span>
-            </button>
-          </div>
-
           <Button 
             fullWidth 
+            variant="white"
             size="lg" 
-            loading={loading}
-            type="submit"
+            onClick={handleGoogleRegister}
+            disabled={loading}
+            className="shadow-xl"
           >
-            Criar Conta Grátis
+            <img src="https://api.iconify.design/logos:google-icon.svg" className="size-5 mr-2" alt="Google" />
+            CADASTRAR COM GOOGLE
           </Button>
 
-          <p className="text-center text-xs text-slate-500 font-medium">
-            Já tem uma conta? <Link to="/login" className="text-primary font-bold hover:underline">Faça Login</Link>
-          </p>
-        </form>
+          <div className="flex items-center gap-4">
+            <div className="h-px bg-border-dark flex-1"></div>
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Ou e-mail</span>
+            <div className="h-px bg-border-dark flex-1"></div>
+          </div>
+
+          <form onSubmit={handleRegister} className="space-y-6">
+            <Input 
+              label="Nome Completo"
+              type="text"
+              placeholder="Seu Nome"
+              icon="person"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+
+            <Input 
+              label="E-mail"
+              type="email"
+              placeholder="seu@email.com"
+              icon="mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <div className="relative">
+              <Input 
+                label="Senha"
+                type={showPassword ? "text" : "password"}
+                placeholder="Min. 6 caracteres"
+                icon="lock"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-[38px] text-slate-500 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">
+                  {showPassword ? 'visibility_off' : 'visibility'}
+                </span>
+              </button>
+            </div>
+
+            <Button 
+              fullWidth 
+              size="lg" 
+              loading={loading}
+              type="submit"
+            >
+              Criar Conta Grátis
+            </Button>
+
+            <p className="text-center text-xs text-slate-500 font-medium">
+              Já tem uma conta? <Link to="/login" className="text-primary font-bold hover:underline">Faça Login</Link>
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );

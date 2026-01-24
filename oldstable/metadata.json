@@ -1,0 +1,8 @@
+{
+  "name": "DarkFlow AI",
+  "description": "A high-performance SaaS for YouTube Automation creators, enabling AI-powered ideation, scriptwriting, and thumbnail generation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
