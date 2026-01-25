@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { useAuth } from '../context/AuthContext';
 
 const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -12,18 +13,27 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { status } = useAuth();
   const navigate = useNavigate();
+
+  // Se o usuário já estiver logado, redireciona para o dashboard
+  useEffect(() => {
+    if (status === 'authenticated') {
+      navigate('/dashboard');
+    }
+  }, [status, navigate]);
 
   const handleGoogleRegister = async () => {
     setLoading(true);
     setError(null);
-    console.log("[DEBUG] Iniciando cadastro via Google...");
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          // Ajustado para cair no dashboard após o cadastro via OAuth
+          redirectTo: window.location.origin + '/#/dashboard',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -31,15 +41,9 @@ const Register: React.FC = () => {
         },
       });
       
-      if (authError) {
-        console.error("[DEBUG] Erro no Supabase:", authError);
-        throw authError;
-      }
-
-      console.log("[DEBUG] Resposta do Supabase:", data);
+      if (authError) throw authError;
     } catch (err: any) {
-      console.error("[DEBUG] Erro capturado:", err);
-      setError(`Erro Google: ${err.message || 'Verifique as configurações do OAuth'}`);
+      setError(`Erro Google: ${err.message}`);
       setLoading(false);
     }
   };
@@ -64,7 +68,8 @@ const Register: React.FC = () => {
       setLoading(false);
     } else {
       if (data.session) {
-        navigate('/');
+        // Redireciona para o dashboard se a sessão foi criada imediatamente
+        navigate('/dashboard');
       } else {
         alert('Cadastro realizado! Verifique seu e-mail para confirmar a conta.');
         navigate('/login');

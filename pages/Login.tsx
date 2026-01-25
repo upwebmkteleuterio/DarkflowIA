@@ -19,8 +19,15 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  const { isPasswordRecovery, setIsPasswordRecovery } = useAuth();
+  const { isPasswordRecovery, setIsPasswordRecovery, status } = useAuth();
   const navigate = useNavigate();
+
+  // Se o usuário já estiver logado, não há motivo para ver a tela de login
+  useEffect(() => {
+    if (status === 'authenticated') {
+      navigate('/dashboard');
+    }
+  }, [status, navigate]);
 
   useEffect(() => {
     if (isPasswordRecovery) {
@@ -31,14 +38,13 @@ const Login: React.FC = () => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
-    console.log("[DEBUG] Iniciando login com Google...");
-    console.log("[DEBUG] Redirect URL configurada:", window.location.origin);
     
     try {
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          // Ajustado para cair no dashboard após o OAuth
+          redirectTo: window.location.origin + '/#/dashboard',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -46,15 +52,9 @@ const Login: React.FC = () => {
         },
       });
 
-      if (authError) {
-        console.error("[DEBUG] Erro retornado pelo Supabase:", authError);
-        throw authError;
-      }
-      
-      console.log("[DEBUG] Resposta do Supabase iniciada com sucesso:", data);
+      if (authError) throw authError;
     } catch (err: any) {
-      console.error("[DEBUG] Erro capturado no catch:", err);
-      setError(`Erro Google: ${err.message || 'Verifique as configurações do Console do Google'}`);
+      setError(`Erro Google: ${err.message}`);
       setLoading(false);
     }
   };
@@ -76,7 +76,8 @@ const Login: React.FC = () => {
           : authError.message);
         setLoading(false);
       } else {
-        navigate('/');
+        // Redireciona especificamente para o dashboard
+        navigate('/dashboard');
       }
     } catch (err) {
       setError("Ocorreu um erro inesperado. Tente novamente.");
