@@ -16,7 +16,7 @@ export const CardTitle: React.FC<{ children: React.ReactNode; className?: string
 );
 
 export const CardDescription: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <p className={`text-sm text-slate-500 mt-1 ${className}`}>{children}</h4>
+  <p className={`text-sm text-slate-500 mt-1 ${className}`}>{children}</p>
 );
 
 export const CardContent: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
