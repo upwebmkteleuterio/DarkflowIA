@@ -22,12 +22,42 @@ const Login: React.FC = () => {
   const { isPasswordRecovery, setIsPasswordRecovery } = useAuth();
   const navigate = useNavigate();
 
-  // Detecta se o usuário veio de um link de recuperação de senha
   useEffect(() => {
     if (isPasswordRecovery) {
       setView('reset');
     }
   }, [isPasswordRecovery]);
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    console.log("[DEBUG] Iniciando login com Google...");
+    console.log("[DEBUG] Redirect URL configurada:", window.location.origin);
+    
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (authError) {
+        console.error("[DEBUG] Erro retornado pelo Supabase:", authError);
+        throw authError;
+      }
+      
+      console.log("[DEBUG] Resposta do Supabase iniciada com sucesso:", data);
+    } catch (err: any) {
+      console.error("[DEBUG] Erro capturado no catch:", err);
+      setError(`Erro Google: ${err.message || 'Verifique as configurações do Console do Google'}`);
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,63 +132,83 @@ const Login: React.FC = () => {
   };
 
   const renderLoginForm = () => (
-    <form onSubmit={handleLogin} className="space-y-6">
-      <Input 
-        label="E-MAIL"
-        type="email"
-        placeholder="seu@email.com"
-        icon="mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
+    <div className="space-y-6">
+      <Button 
+        fullWidth 
+        variant="white"
+        size="lg" 
+        onClick={handleGoogleLogin}
         disabled={loading}
-      />
+        className="shadow-xl"
+      >
+        <img src="https://api.iconify.design/logos:google-icon.svg" className="size-5 mr-2" alt="Google" />
+        ENTRAR COM GOOGLE
+      </Button>
 
-      <div className="relative">
+      <div className="flex items-center gap-4">
+        <div className="h-px bg-border-dark flex-1"></div>
+        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Ou com e-mail</span>
+        <div className="h-px bg-border-dark flex-1"></div>
+      </div>
+
+      <form onSubmit={handleLogin} className="space-y-6">
         <Input 
-          label="SENHA"
-          type={showPassword ? "text" : "password"}
-          placeholder="••••••••"
-          icon="lock"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          label="E-MAIL"
+          type="email"
+          placeholder="seu@email.com"
+          icon="mail"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
           disabled={loading}
         />
-        <button 
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-[38px] text-slate-500 hover:text-white transition-colors"
+
+        <div className="relative">
+          <Input 
+            label="SENHA"
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            icon="lock"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading}
+          />
+          <button 
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-[38px] text-slate-500 hover:text-white transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">
+              {showPassword ? 'visibility_off' : 'visibility'}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex justify-end">
+          <button 
+            type="button"
+            onClick={() => { setView('forgot'); setError(null); setSuccess(null); }}
+            className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+          >
+            Esqueceu a senha?
+          </button>
+        </div>
+
+        <Button 
+          fullWidth 
+          size="lg" 
+          loading={loading}
+          type="submit"
         >
-          <span className="material-symbols-outlined text-xl">
-            {showPassword ? 'visibility_off' : 'visibility'}
-          </span>
-        </button>
-      </div>
+          ENTRAR NO PAINEL
+        </Button>
 
-      <div className="flex justify-end">
-        <button 
-          type="button"
-          onClick={() => { setView('forgot'); setError(null); setSuccess(null); }}
-          className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
-        >
-          Esqueceu a senha?
-        </button>
-      </div>
-
-      <Button 
-        fullWidth 
-        size="lg" 
-        loading={loading}
-        type="submit"
-      >
-        ENTRAR NO PAINEL
-      </Button>
-
-      <p className="text-center text-xs text-slate-500 font-medium">
-        Não tem uma conta? <Link to="/register" className="text-primary font-bold hover:underline">Cadastre-se</Link>
-      </p>
-    </form>
+        <p className="text-center text-xs text-slate-500 font-medium">
+          Não tem uma conta? <Link to="/register" className="text-primary font-bold hover:underline">Cadastre-se</Link>
+        </p>
+      </form>
+    </div>
   );
 
   const renderForgotForm = () => (
@@ -239,7 +289,7 @@ const Login: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-black p-6 relative overflow-hidden">
+    <div className="min-h-screen w-full flex items-center justify-center bg-black p-6 relative overflow-hidden text-left">
       <div className="absolute inset-0 z-0">
         <EnergyBeam />
       </div>
