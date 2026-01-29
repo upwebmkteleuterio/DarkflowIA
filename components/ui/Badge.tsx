@@ -3,7 +3,7 @@ import React from 'react';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'success' | 'warning' | 'error' | 'neutral';
+  variant?: 'primary' | 'success' | 'warning' | 'error' | 'neutral' | 'outline';
   pulse?: boolean;
   className?: string;
 }
@@ -21,7 +21,9 @@ const Badge: React.FC<BadgeProps> = ({
     success: "bg-accent-green/10 text-accent-green border-accent-green/20",
     warning: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
     error: "bg-red-500/10 text-red-500 border-red-500/20",
-    neutral: "bg-white/5 text-slate-500 border-white/10"
+    neutral: "bg-white/5 text-slate-500 border-white/10",
+    // Added outline variant to support local branding overrides via className
+    outline: "bg-transparent border-white/10 text-white"
   };
 
   const pulseColor = {
@@ -29,7 +31,8 @@ const Badge: React.FC<BadgeProps> = ({
     success: "bg-accent-green",
     warning: "bg-yellow-500",
     error: "bg-red-500",
-    neutral: "bg-slate-500"
+    neutral: "bg-slate-500",
+    outline: "bg-white"
   };
 
   return (

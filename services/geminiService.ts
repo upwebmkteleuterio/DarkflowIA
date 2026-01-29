@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Trend, TitleIdea } from "../types";
+import { Trend, TitleIdea, VeoConsistency } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -16,6 +16,104 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000)
     throw error;
   }
 }
+
+export const analyzeVeoScript = async (script: string): Promise<VeoConsistency> => {
+  return callWithRetry(async () => {
+    const ai = getAI();
+    
+    const prompt = `
+      TRANSFORME O ROTEIRO ABAIXO EM UMA ESTRUTURA DE CONSISTÊNCIA PROFISSIONAL PARA VÍDEO (VEO 3).
+      
+      ROTEIRO:
+      ---
+      ${script}
+      ---
+      
+      INSTRUÇÕES DE EXTRAÇÃO:
+      1. Identifique Personagens Principais (IDs: CHAR_A, CHAR_B...).
+      2. Identifique Ambientes Recorrentes (IDs: LOC_1, LOC_2...).
+      3. Defina Época e Tom Global.
+      4. Marque o roteiro original com os IDs entre colchetes [CHAR_X] [LOC_X] sem alterar nenhuma palavra.
+
+      RETORNE APENAS UM JSON NO FORMATO ABAIXO:
+      {
+        "personagens": [{
+          "id": "CHAR_A",
+          "nome": "",
+          "identidade": { "sexo": "", "faixa_etaria_aparente": "", "etnia": "", "tom_de_pele": "" },
+          "detalhes_rosto": { "formato_do_rosto": "", "cor_dos_olhos": "", "sobrancelhas": "", "tipo_de_nariz": "", "boca_labios": "", "marcas_faciais": "" },
+          "cabelo": { "cor_do_cabelo": "", "estilo_do_cabelo": "", "pelos_faciais": "" },
+          "corpo": { "altura_aproximada": "", "tipo_fisico": "" },
+          "vestimenta": { "roupas_principais": "", "cores_predominantes": "" },
+          "presenca": { "postura": "", "expressao_facial_base": "", "linguagem_corporal": "" }
+        }],
+        "locais": [{
+          "id": "LOC_1",
+          "nome_do_local": "",
+          "tipo_de_ambiente": "interno/externo",
+          "descricao_visual_detalhada": "",
+          "iluminacao_padrao": "",
+          "clima_atmosferico": "",
+          "elementos_fixos_importantes": ""
+        }],
+        "epoca": { "periodo_temporal": "", "tecnologia_presente": "", "estilo_visual_da_epoca": "" },
+        "tom_global": { "estilo_narrativo": "", "ritmo": "", "clima_emocional": "", "iluminacao_predominante": "", "referencia_cinematografica": "" },
+        "roteiro_marcado": "Texto original com [IDs]"
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: { 
+        responseMimeType: "application/json"
+      }
+    });
+
+    return JSON.parse(response.text || "{}");
+  });
+};
+
+export const generateVeoScenes = async (script: string, consistency: VeoConsistency): Promise<{ scenes: any[], script_com_cenas: string }> => {
+  return callWithRetry(async () => {
+    const ai = getAI();
+    const prompt = `
+      ESTRATEGISTA VISUAL VEO 3: Divida o roteiro em cenas cinematográficas de 5 a 10 segundos cada.
+      
+      REGRAS CRÍTICAS:
+      1. COBERTA TOTAL: Você DEVE processar o roteiro do início até a ÚLTIMA PALAVRA. Não interrompa a geração antes de chegar ao fim do texto fornecido.
+      2. MAPEAMENTO EXATO: Retorne o roteiro original completo. Insira marcadores [CENA_1], [CENA_2]... exatamente no início de cada bloco de texto que corresponde à cena gerada.
+      3. PROMPTS: Para cada cena, descreva a ação visual rica em detalhes usando obrigatoriamente os IDs de consistência [CHAR_X] e [LOC_X].
+      
+      ROTEIRO PARA PROCESSAR:
+      ${consistency.roteiro_marcado}
+      
+      RETORNE UM JSON ESTRUTURADO:
+      {
+        "scenes": [
+          { "id": "SCENE_1", "timestamp": "00:00", "prompt_base": "Ação visual detalhada com [IDs]" },
+          ... continue até o fim do roteiro ...
+        ],
+        "script_com_cenas": "O roteiro completo com [CENA_1], [CENA_2] etc injetados no texto."
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+
+    const result = JSON.parse(response.text || "{\"scenes\":[], \"script_com_cenas\":\"\"}");
+    
+    // Fallback de segurança se o script_com_cenas vier vazio
+    if (!result.script_com_cenas) {
+        result.script_com_cenas = consistency.roteiro_marcado;
+    }
+
+    return result;
+  });
+};
 
 export const generateScript = async (title: string, niche: string, duration: number, mode: string, tone?: string, retention?: string, winnerTemplate?: string, baseTheme?: string): Promise<string> => {
   return callWithRetry(async () => {
@@ -71,30 +169,13 @@ export const generateScript = async (title: string, niche: string, duration: num
 export const generateThumbnail = async (prompt: string, style: string, title?: string, referenceImage?: string): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAI();
-    
-    // Instrução de texto visual (Título na Arte)
-    const textInstruction = title 
-      ? `\n\nCRITICAL REQUIREMENT: You MUST overlay the following text clearly on the image: "${title}". 
-         The text must be large, bold, and in a high-contrast color that stands out from the background. 
-         Position it strategically for maximum click-through rate.`
-      : '';
-
-    const contents: any = { 
-      parts: [
-        { 
-          text: `Create a high-impact YouTube Thumbnail. 
-                 Visual Style: ${style}. 
-                 Visual Scene: ${prompt}.${textInstruction}` 
-        }
-      ] 
-    };
-
+    const textInstruction = title ? `\n\nCRITICAL REQUIREMENT: You MUST overlay the following text clearly on the image: "${title}". The text must be large, bold, and in a high-contrast color that stands out from the background. Position it strategically for maximum click-through rate.` : '';
+    const contents: any = { parts: [{ text: `Create a high-impact YouTube Thumbnail. Visual Style: ${style}. Visual Scene: ${prompt}.${textInstruction}` }] };
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents,
       config: { imageConfig: { aspectRatio: "16:9" } }
     });
-
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }

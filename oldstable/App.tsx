@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { BatchProvider, useBatch } from './context/BatchContext';
 import { supabase } from './lib/supabase';
 import Sidebar from './components/Sidebar';
+import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import Ideation from './pages/Ideation';
 import Script from './pages/Script';
@@ -59,34 +60,24 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     if (project) setTempTitle(project.name);
   }, [project]);
 
-  // LÓGICA DE PROTEÇÃO CONTRA LIMBO (Orphan Cleanup)
   useEffect(() => {
     const cleanupOrphans = async () => {
       if (!project || !project.items) return;
-
       const generatingItems = project.items.filter(item => 
         item.status === 'generating' || item.thumbStatus === 'generating'
       );
-
       if (generatingItems.length > 0) {
-        console.log(`[CLEANUP] Detectados ${generatingItems.length} itens possivelmente travados.`);
-        
         for (const item of generatingItems) {
-          // Se o item está como 'generating' no banco, mas NÃO está na fila ativa do BatchContext do navegador atual
           const isInActiveQueue = batchState.tasks.some(t => t.itemId === item.id && (t.status === 'pending' || t.status === 'processing'));
-          
           if (!isInActiveQueue) {
-            console.log(`[CLEANUP] Resetando item órfão: ${item.title}`);
             const updates: any = {};
             if (item.status === 'generating') updates.status = 'pending';
             if (item.thumbStatus === 'generating') updates.thumb_status = 'pending';
-
             await supabase.from('script_items').update(updates).eq('id', item.id);
           }
         }
       }
     };
-
     cleanupOrphans();
   }, [project?.id, batchState.isProcessing]);
 
@@ -94,7 +85,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
     <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-slate-400">
       <span className="material-symbols-outlined text-6xl mb-4 opacity-20">search_off</span>
       <p className="font-bold text-lg">Projeto não encontrado</p>
-      <Link to="/" className="text-primary hover:underline mt-2">Voltar ao Painel</Link>
+      <Link to="/dashboard" className="text-primary hover:underline mt-2">Voltar ao Painel</Link>
     </div>
   );
 
@@ -155,7 +146,9 @@ const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const { user, status, isLoading } = useAuth();
   const location = useLocation();
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  
+  // Uma página pública só deve ser acessada por quem não está logado
+  const isPublicPage = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
 
   const loadProjects = useCallback(async () => {
     if (!user) return;
@@ -183,21 +176,8 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (user && (status === 'authenticated' || status === 'loading')) {
       loadProjects();
-
-      const channel = supabase
-        .channel('db-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'script_items' },
-          () => {
-            loadProjects();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      const channel = supabase.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'script_items' }, () => { loadProjects(); }).subscribe();
+      return () => { supabase.removeChannel(channel); };
     } else if (!isLoading && status === 'unauthenticated') {
       setProjects([]);
     }
@@ -223,37 +203,14 @@ const AppContent: React.FC = () => {
   const createNewProject = async () => {
     if (!user) return;
     const newId = Date.now().toString();
-    const newProject: Project = {
-      id: newId,
-      name: 'Novo Projeto',
-      niche: '',
-      baseTheme: '',
-      targetAudience: '',
-      createdAt: new Date().toISOString(),
-      items: [],
-      globalTone: 'Misterioso e Sombrio',
-      globalRetention: 'AIDA',
-      globalDuration: 12,
-      thumbnails: [],
-      scriptMode: 'auto'
-    };
-
-    const { error } = await supabase
-      .from('projects')
-      .insert({
-        id: newId,
-        user_id: user.id,
-        name: newProject.name,
-        created_at: newProject.createdAt
-      });
-
+    const { error } = await supabase.from('projects').insert({ id: newId, user_id: user.id, name: 'Novo Projeto', created_at: new Date().toISOString() });
     if (!error) {
-      setProjects([newProject, ...projects]);
+      loadProjects();
       window.location.hash = `#/projects/${newId}`;
     }
   };
 
-  if (isLoading && !user && !isAuthPage) {
+  if (isLoading && !user && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
@@ -267,13 +224,18 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {!isAuthPage && user && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
+      {/* Sidebar só aparece se estiver logado e não estiver em página pública */}
+      {!isPublicPage && user && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>
+          {/* Se logado, a raiz redireciona para dashboard. Se não, mostra LandingPage */}
+          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+          
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} /></ProtectedRoute>} />
+          
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} /></ProtectedRoute>} />
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectFlow projects={projects} onUpdate={handleUpdateProject} /></ProtectedRoute>} />
           <Route path="/trends" element={<ProtectedRoute><TrendHunter /></ProtectedRoute>} />
           <Route path="/title-generator" element={<ProtectedRoute><TitleGenerator /></ProtectedRoute>} />
@@ -282,6 +244,8 @@ const AppContent: React.FC = () => {
           <Route path="/cost-estimator" element={<ProtectedRoute roles={['adm']}><CostEstimator /></ProtectedRoute>} />
           <Route path="/admin/plans" element={<ProtectedRoute roles={['adm']}><AdminPlans /></ProtectedRoute>} />
           <Route path="/admin/tech-specs" element={<ProtectedRoute roles={['adm']}><TechSpecs /></ProtectedRoute>} />
+          
+          {/* Qualquer outra rota redireciona para a raiz (que decidirá se vai para Dashboard ou Landing) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

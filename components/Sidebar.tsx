@@ -20,7 +20,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   };
 
   const navItems = [
-    { name: 'Meus Projetos', icon: 'grid_view', path: '/', roles: ['free', 'pro', 'adm'] },
+    { name: 'Meus Roteiros', icon: 'grid_view', path: '/', roles: ['free', 'pro', 'adm'] },
+    { name: 'VEO 3 Script', icon: 'movie_edit', path: '/veo-script', roles: ['free', 'pro', 'adm'] },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends', roles: ['free', 'pro', 'adm'] },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans', roles: ['free', 'pro', 'adm'] },
     { name: 'Configurações', icon: 'settings', path: '/settings', roles: ['free', 'pro', 'adm'] },
@@ -78,7 +79,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         </nav>
       </div>
 
-      {/* Componente Refatorado de Créditos e Perfil */}
       <SidebarCredits 
         isCollapsed={isCollapsed} 
         isMobile={isMobile} 
@@ -91,7 +91,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   return (
     <>
-      {/* Mobile Header */}
       <div className="lg:hidden w-full h-16 bg-surface-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0 z-[50] relative">
         <div className="flex items-center gap-3">
           <div className="bg-primary size-9 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
@@ -107,21 +106,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
         </button>
       </div>
 
-      {/* Desktop Sidebar */}
       <aside className={`hidden lg:flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-visible transition-all duration-500 z-[60] ${isCollapsed ? 'w-20' : 'w-64'}`}>
         {SidebarContent(false)}
       </aside>
 
-      {/* Mobile Sidebar Overlay & Container */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[100] lg:hidden flex overflow-hidden">
-          {/* Backdrop/Overlay - Clicar aqui fecha o menu */}
           <div 
             className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-700 animate-in fade-in" 
             onClick={closeMenu} 
           />
-          
-          {/* Painel do Menu - Desliza da esquerda para a direita de forma sutil */}
           <div className="relative h-full shadow-2xl animate-in slide-in-from-left duration-500 ease-out fill-mode-forwards">
             {SidebarContent(true)}
           </div>

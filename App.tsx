@@ -21,6 +21,7 @@ import TechSpecs from './pages/TechSpecs';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VeoScript from './pages/VeoScript';
 import GlobalBatchProgress from './components/Batch/GlobalBatchProgress';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Project, ProjectStep } from './types';
@@ -146,8 +147,6 @@ const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const { user, status, isLoading } = useAuth();
   const location = useLocation();
-  
-  // Uma página pública só deve ser acessada por quem não está logado
   const isPublicPage = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
 
   const loadProjects = useCallback(async () => {
@@ -224,19 +223,16 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-background-dark text-slate-100 overflow-hidden relative">
-      {/* Sidebar só aparece se estiver logado e não estiver em página pública */}
       {!isPublicPage && user && <Sidebar isCollapsed={false} onToggleCollapse={() => {}} />}
       
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto custom-scrollbar relative z-0">
         <Routes>
-          {/* Se logado, a raiz redireciona para dashboard. Se não, mostra LandingPage */}
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-          
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} /></ProtectedRoute>} />
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectFlow projects={projects} onUpdate={handleUpdateProject} /></ProtectedRoute>} />
+          <Route path="/veo-script" element={<ProtectedRoute><VeoScript /></ProtectedRoute>} />
           <Route path="/trends" element={<ProtectedRoute><TrendHunter /></ProtectedRoute>} />
           <Route path="/title-generator" element={<ProtectedRoute><TitleGenerator /></ProtectedRoute>} />
           <Route path="/plans" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
@@ -244,8 +240,6 @@ const AppContent: React.FC = () => {
           <Route path="/cost-estimator" element={<ProtectedRoute roles={['adm']}><CostEstimator /></ProtectedRoute>} />
           <Route path="/admin/plans" element={<ProtectedRoute roles={['adm']}><AdminPlans /></ProtectedRoute>} />
           <Route path="/admin/tech-specs" element={<ProtectedRoute roles={['adm']}><TechSpecs /></ProtectedRoute>} />
-          
-          {/* Qualquer outra rota redireciona para a raiz (que decidirá se vai para Dashboard ou Landing) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

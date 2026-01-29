@@ -122,7 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setIsLoading(false);
     setIsPasswordRecovery(false);
-    window.location.hash = '#/login';
+    // Redireciona para a Landing Page para que o cliente possa vê-la novamente
+    window.location.hash = '#/';
   };
 
   const status: AuthStatus = isLoading ? 'loading' : user ? 'authenticated' : 'unauthenticated';
