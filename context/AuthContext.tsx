@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Session } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
@@ -13,8 +12,8 @@ interface UserProfile {
   image_credits: number;
   subscription_status: string;
   plan_id: string;
-  cellphone?: string; // Novo
-  tax_id?: string;    // Novo
+  cellphone?: string;
+  tax_id?: string;
   minutes_per_credit?: number;
   max_duration_limit?: number;
   current_period_end?: string;
@@ -77,28 +76,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log("[AUTH] Inicializando sistema de autenticação...");
+      console.log("[AUTH] URL Atual:", window.location.href);
+      console.log("[AUTH] Fragmento Hash:", window.location.hash);
+
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("[AUTH] Erro ao recuperar sessão do Supabase:", error.message);
+        }
+
         if (initialSession?.user) {
+          console.log("[AUTH] Usuário detectado via sessão ativa:", initialSession.user.email);
           setSession(initialSession);
           setUser(initialSession.user);
           fetchProfile(initialSession.user.id);
-          setIsLoading(false);
         } else {
-          setIsLoading(false);
+          console.log("[AUTH] Nenhuma sessão ativa encontrada na inicialização.");
         }
       } catch (e) {
+        console.error("[AUTH] Falha crítica ao inicializar Auth:", e);
+      } finally {
         setIsLoading(false);
       }
     };
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log(`[AUTH] Evento detectado: ${event}`);
+      
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
       }
 
       if (newSession?.user) {
+        console.log("[AUTH] Nova sessão estabelecida para:", newSession.user.email);
         setSession(newSession);
         setUser(newSession.user);
         setIsLoading(false);
@@ -106,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchProfile(newSession.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log("[AUTH] Usuário desconectado.");
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -122,7 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setIsLoading(false);
     setIsPasswordRecovery(false);
-    // Redireciona para a Landing Page para que o cliente possa vê-la novamente
     window.location.hash = '#/';
   };
 

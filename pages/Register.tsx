@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -17,7 +16,6 @@ const Register: React.FC = () => {
   const { status } = useAuth();
   const navigate = useNavigate();
 
-  // Se o usuário já estiver logado, redireciona para o dashboard
   useEffect(() => {
     if (status === 'authenticated') {
       navigate('/dashboard');
@@ -29,11 +27,12 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+      console.log("[REGISTER] Iniciando Google OAuth para cadastro...");
+      const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Ajustado para cair no dashboard após o cadastro via OAuth
-          redirectTo: window.location.origin + '/#/dashboard',
+          // Ajustado parawindow.location.origin para resolver o problema de redirecionamento do HashRouter
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -43,6 +42,7 @@ const Register: React.FC = () => {
       
       if (authError) throw authError;
     } catch (err: any) {
+      console.error("[REGISTER] Erro no fluxo Google:", err.message);
       setError(`Erro Google: ${err.message}`);
       setLoading(false);
     }
@@ -68,7 +68,6 @@ const Register: React.FC = () => {
       setLoading(false);
     } else {
       if (data.session) {
-        // Redireciona para o dashboard se a sessão foi criada imediatamente
         navigate('/dashboard');
       } else {
         alert('Cadastro realizado! Verifique seu e-mail para confirmar a conta.');

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -22,7 +21,6 @@ const Login: React.FC = () => {
   const { isPasswordRecovery, setIsPasswordRecovery, status } = useAuth();
   const navigate = useNavigate();
 
-  // Se o usuário já estiver logado, não há motivo para ver a tela de login
   useEffect(() => {
     if (status === 'authenticated') {
       navigate('/dashboard');
@@ -40,11 +38,12 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
-      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+      console.log("[LOGIN] Iniciando fluxo Google OAuth...");
+      const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Ajustado para cair no dashboard após o OAuth
-          redirectTo: window.location.origin + '/#/dashboard',
+          // Ajustado para redirecionar para a raiz e deixar o Supabase processar o hash token corretamente
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -54,6 +53,7 @@ const Login: React.FC = () => {
 
       if (authError) throw authError;
     } catch (err: any) {
+      console.error("[LOGIN] Erro no fluxo Google:", err.message);
       setError(`Erro Google: ${err.message}`);
       setLoading(false);
     }
@@ -76,7 +76,6 @@ const Login: React.FC = () => {
           : authError.message);
         setLoading(false);
       } else {
-        // Redireciona especificamente para o dashboard
         navigate('/dashboard');
       }
     } catch (err) {
