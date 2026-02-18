@@ -57,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("[AUTH] Erro ao buscar perfil:", error.message);
       } else if (data) {
+        console.log("[AUTH] Perfil carregado:", data.display_name);
         setProfile({
           ...data,
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
@@ -76,56 +77,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log("[AUTH] Inicializando sistema de autenticação...");
-      console.log("[AUTH] URL Atual:", window.location.href);
-      console.log("[AUTH] Fragmento Hash:", window.location.hash);
+      const hash = window.location.hash;
+      console.log("[AUTH] Inicializando...");
+      console.log("[AUTH] Hash da URL:", hash);
+
+      // Se detectarmos tokens de auth na URL, esperamos um pouco mais para o Supabase processar
+      const hasAuthToken = hash.includes('access_token=') || hash.includes('id_token=') || hash.includes('type=recovery');
+      
+      if (hasAuthToken) {
+        console.log("[AUTH] Token de autenticação detectado na URL. Aguardando processamento...");
+      }
 
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("[AUTH] Erro ao recuperar sessão do Supabase:", error.message);
+          console.error("[AUTH] Erro getSession:", error.message);
         }
 
         if (initialSession?.user) {
-          console.log("[AUTH] Usuário detectado via sessão ativa:", initialSession.user.email);
+          console.log("[AUTH] Sessão inicial encontrada:", initialSession.user.email);
           setSession(initialSession);
           setUser(initialSession.user);
-          fetchProfile(initialSession.user.id);
-        } else {
-          console.log("[AUTH] Nenhuma sessão ativa encontrada na inicialização.");
+          await fetchProfile(initialSession.user.id);
+        } else if (hasAuthToken) {
+          // Se tem token mas getSession falhou, damos um pequeno tempo para o onAuthStateChange agir
+          console.log("[AUTH] Token presente mas sessão ainda não pronta. Aguardando listener...");
+          return; 
         }
       } catch (e) {
-        console.error("[AUTH] Falha crítica ao inicializar Auth:", e);
+        console.error("[AUTH] Falha crítica inicial:", e);
       } finally {
-        setIsLoading(false);
+        // Só liberamos o loading se não estivermos esperando um token OAuth
+        if (!hasAuthToken) {
+          setIsLoading(false);
+        }
       }
     };
+
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log(`[AUTH] Evento detectado: ${event}`);
+      console.log(`[AUTH] Evento Supabase: ${event}`);
       
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
       }
 
       if (newSession?.user) {
-        console.log("[AUTH] Nova sessão estabelecida para:", newSession.user.email);
+        console.log("[AUTH] Usuário autenticado via evento:", newSession.user.email);
         setSession(newSession);
         setUser(newSession.user);
-        setIsLoading(false);
+        setIsLoading(false); // Garante que o loading para ao receber a sessão
+        
         if (!profile || profile.id !== newSession.user.id) {
-          fetchProfile(newSession.user.id);
+          await fetchProfile(newSession.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
-        console.log("[AUTH] Usuário desconectado.");
+        console.log("[AUTH] Logout detectado.");
         setSession(null);
         setUser(null);
         setProfile(null);
         setIsLoading(false);
+      } else if (event === 'INITIAL_SESSION' && !newSession) {
+        // Se após a verificação inicial não houver nada, liberamos o loading
+        setIsLoading(false);
       }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
