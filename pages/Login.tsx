@@ -23,7 +23,6 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      console.log("[LOGIN] Status autenticado detectado. Redirecionando para dashboard...");
       navigate('/dashboard');
     }
   }, [status, navigate]);
@@ -39,15 +38,11 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
-      console.log("[LOGIN] Iniciando OAuth do Google...");
-      
-      // redirectTo aponta para a raiz absoluta. 
-      // O Supabase irá injetar os tokens no hash (#access_token=...)
-      // O AuthContext irá detectar e processar antes de liberar o Router.
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin, 
+          // Usamos o origin sem barra para o Supabase injetar o hash corretamente
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -57,7 +52,6 @@ const Login: React.FC = () => {
 
       if (authError) throw authError;
     } catch (err: any) {
-      console.error("[LOGIN] Erro Google Auth:", err.message);
       setError(`Erro Google: ${err.message}`);
       setLoading(false);
     }

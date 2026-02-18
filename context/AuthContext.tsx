@@ -43,8 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const fetchingProfileId = useRef<string | null>(null);
 
-  const fetchProfile = async (userId: string) => {
-    if (fetchingProfileId.current === userId) return;
+  const fetchProfile = async (userId: string, retryCount = 0) => {
+    if (fetchingProfileId.current === userId && retryCount === 0) return;
     fetchingProfileId.current = userId;
 
     try {
@@ -62,11 +62,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           minutes_per_credit: data.plans?.minutes_per_credit || 30,
           max_duration_limit: data.plans?.max_duration_limit || 60
         } as any);
+      } else if (retryCount < 3) {
+        // Se não achou o perfil, pode ser que a trigger ainda esteja rodando. Tenta de novo em 1.5s
+        console.log(`[AUTH] Perfil não encontrado, tentando novamente... (${retryCount + 1})`);
+        setTimeout(() => fetchProfile(userId, retryCount + 1), 1500);
       }
     } catch (e) {
       console.error("[AUTH] Exceção na busca de perfil:", e);
     } finally {
-      fetchingProfileId.current = null;
+      if (retryCount >= 3 || profile) fetchingProfileId.current = null;
     }
   };
 
@@ -76,51 +80,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const hash = window.location.hash;
-      const hasAuthToken = hash.includes('access_token=') || hash.includes('id_token=') || hash.includes('type=recovery');
-
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
         if (initialSession?.user) {
           setSession(initialSession);
           setUser(initialSession.user);
           await fetchProfile(initialSession.user.id);
         }
       } catch (e) {
-        console.error("[AUTH] Erro na inicialização:", e);
+        console.error("[AUTH] Erro inicialização:", e);
       } finally {
-        // Se não tiver token na URL, liberamos o loading. 
-        // Se tiver, o onAuthStateChange cuidará disso em instantes.
-        if (!hasAuthToken) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log(`[AUTH] Evento: ${event}`);
+      console.log(`[AUTH] Evento Auth: ${event}`);
       
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordRecovery(true);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (newSession?.user) {
+          setSession(newSession);
+          setUser(newSession.user);
+          fetchProfile(newSession.user.id);
+        }
+        setIsLoading(false);
       }
 
-      if (newSession?.user) {
-        setSession(newSession);
-        setUser(newSession.user);
-        setIsLoading(false);
-        if (!profile || profile.id !== newSession.user.id) {
-          await fetchProfile(newSession.user.id);
-        }
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
         setProfile(null);
         setIsLoading(false);
-      } else if (event === 'INITIAL_SESSION' && !newSession) {
-        setIsLoading(false);
+        window.location.hash = '#/';
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
       }
     });
 
@@ -128,19 +125,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    // Força a limpeza do estado local IMEDIATAMENTE para evitar travamentos da UI
+    // LIMPEZA IMEDIATA: Não espera o Supabase responder para liberar a UI
+    setIsLoading(true);
     setUser(null);
     setProfile(null);
     setSession(null);
-    setIsLoading(false);
     
     try { 
       await supabase.auth.signOut(); 
     } catch (e) {
-      console.error("[AUTH] Erro ao deslogar do Supabase:", e);
+      console.warn("[AUTH] Erro ao comunicar saída ao servidor:", e);
+    } finally {
+      setIsLoading(false);
+      window.location.hash = '#/';
     }
-    
-    window.location.hash = '#/';
   };
 
   const status: AuthStatus = isLoading ? 'loading' : user ? 'authenticated' : 'unauthenticated';
