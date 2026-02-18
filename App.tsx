@@ -144,7 +144,7 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isProjectsLoading, setIsProjectsLoading] = useState(true);
+  const [isProjectsLoading, setIsProjectsLoading] = useState(false);
   const { user, status, isLoading } = useAuth();
   const location = useLocation();
   const isPublicPage = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
@@ -152,26 +152,31 @@ const AppContent: React.FC = () => {
   const loadProjects = useCallback(async () => {
     if (!user) return;
     setIsProjectsLoading(true);
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*, script_items(*)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, script_items(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setProjects(data.map((p: any) => ({ 
-        ...p, 
-        createdAt: p.created_at,
-        targetAudience: p.target_audience || '',
-        baseTheme: p.base_theme || '',
-        globalDuration: p.global_duration || 12,
-        globalTone: p.global_tone || 'Misterioso e Sombrio',
-        globalRetention: p.global_retention || 'AIDA',
-        scriptMode: p.script_mode || 'auto',
-        items: p.script_items || [] 
-      })));
+      if (!error && data) {
+        setProjects(data.map((p: any) => ({ 
+          ...p, 
+          createdAt: p.created_at,
+          targetAudience: p.target_audience || '',
+          baseTheme: p.base_theme || '',
+          globalDuration: p.global_duration || 12,
+          globalTone: p.global_tone || 'Misterioso e Sombrio',
+          globalRetention: p.global_retention || 'AIDA',
+          scriptMode: p.script_mode || 'auto',
+          items: p.script_items || [] 
+        })));
+      }
+    } catch (e) {
+      console.error("[PROJECTS] Falha ao carregar lista:", e);
+    } finally {
+      setIsProjectsLoading(false);
     }
-    setIsProjectsLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -217,7 +222,7 @@ const AppContent: React.FC = () => {
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
         <div className="text-center space-y-2">
-           <h2 className="h-4 w-32 bg-slate-800 rounded animate-pulse mx-auto"></h2>
+           <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Sincronizando Sessão...</p>
         </div>
       </div>
