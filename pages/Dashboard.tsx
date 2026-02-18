@@ -1,8 +1,8 @@
-
 import React from 'react';
 import { Project } from '../types';
 import { useDashboard } from '../hooks/useDashboard';
 import ProjectCard from '../components/Dashboard/ProjectCard';
+import ProjectSkeleton from '../components/Dashboard/ProjectSkeleton';
 import DashboardToolbar from '../components/Dashboard/DashboardToolbar';
 import Button from '../components/ui/Button';
 
@@ -10,9 +10,10 @@ interface DashboardProps {
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   onCreateProject: () => void;
+  isLoading?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreateProject }) => {
+const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreateProject, isLoading = false }) => {
   const {
     searchQuery,
     setSearchQuery,
@@ -28,7 +29,9 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
           <h2 className="text-white text-3xl md:text-5xl font-black tracking-tighter font-display text-left">
             Central de <span className="text-primary italic">Criação</span>
           </h2>
-          <p className="text-slate-400 text-sm font-medium text-left">Você tem {projects.length} projetos em andamento hoje.</p>
+          <p className="text-slate-400 text-sm font-medium text-left">
+            {isLoading ? 'Sincronizando seus projetos...' : `Você tem ${projects.length} projetos em andamento hoje.`}
+          </p>
         </div>
         
         <Button 
@@ -36,12 +39,13 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
           icon="add" 
           onClick={onCreateProject}
           className="group"
+          disabled={isLoading}
         >
           Novo Projeto
         </Button>
       </div>
 
-      {/* Toolbar: Busca (Filtros removidos conforme solicitado) */}
+      {/* Toolbar: Busca */}
       <DashboardToolbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -49,37 +53,47 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, setProjects, onCreatePr
 
       {/* Grid de Projetos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProjects.map((project) => (
-          <ProjectCard 
-            key={project.id} 
-            project={project} 
-            onDelete={(e, id) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleDeleteProject(id);
-            }} 
-          />
-        ))}
+        {isLoading ? (
+          <>
+            <ProjectSkeleton />
+            <ProjectSkeleton />
+            <ProjectSkeleton />
+          </>
+        ) : (
+          <>
+            {filteredProjects.map((project) => (
+              <ProjectCard 
+                key={project.id} 
+                project={project} 
+                onDelete={(e, id) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteProject(id);
+                }} 
+              />
+            ))}
 
-        {filteredProjects.length === 0 && searchQuery && (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 bg-surface-dark/10 rounded-3xl border-2 border-dashed border-border-dark">
-            <span className="material-symbols-outlined text-6xl mb-4 opacity-10">search_off</span>
-            <p className="font-bold text-white">Nenhum projeto encontrado</p>
-            <p className="text-sm">Tente mudar os termos da busca.</p>
-          </div>
-        )}
+            {filteredProjects.length === 0 && searchQuery && (
+              <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 bg-surface-dark/10 rounded-3xl border-2 border-dashed border-border-dark">
+                <span className="material-symbols-outlined text-6xl mb-4 opacity-10">search_off</span>
+                <p className="font-bold text-white">Nenhum projeto encontrado</p>
+                <p className="text-sm">Tente mudar os termos da busca.</p>
+              </div>
+            )}
 
-        {filteredProjects.length === 0 && !searchQuery && (
-          <button
-            onClick={onCreateProject}
-            className="group border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center p-10 hover:border-primary/50 transition-all duration-300 bg-surface-dark/20 min-h-[280px] w-full"
-          >
-            <div className="size-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all shadow-xl shadow-primary/5">
-              <span className="material-symbols-outlined text-4xl">add</span>
-            </div>
-            <p className="text-white font-black text-sm uppercase tracking-[0.2em]">Criar Primeiro Vídeo</p>
-            <p className="text-slate-500 text-[11px] mt-2 font-medium max-w-[180px] text-center uppercase leading-relaxed opacity-60">Inicie sua jornada viral com a nossa inteligência artificial</p>
-          </button>
+            {filteredProjects.length === 0 && !searchQuery && (
+              <button
+                onClick={onCreateProject}
+                className="group border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center p-10 hover:border-primary/50 transition-all duration-300 bg-surface-dark/20 min-h-[280px] w-full"
+              >
+                <div className="size-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all shadow-xl shadow-primary/5">
+                  <span className="material-symbols-outlined text-4xl">add</span>
+                </div>
+                <p className="text-white font-black text-sm uppercase tracking-[0.2em]">Criar Primeiro Vídeo</p>
+                <p className="text-slate-500 text-[11px] mt-2 font-medium max-w-[180px] text-center uppercase leading-relaxed opacity-60">Inicie sua jornada viral com a nossa inteligência artificial</p>
+              </button>
+            )}
+          </>
         )}
       </div>
 

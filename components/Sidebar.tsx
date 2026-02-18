@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
 
   const navItems = [
     { name: 'Meus Roteiros', icon: 'grid_view', path: '/', roles: ['free', 'pro', 'adm'] },
-    { name: 'VEO 3 Script', icon: 'movie_edit', path: '/veo-script', roles: ['free', 'pro', 'adm'] },
+    { name: 'VEO 3 Script', icon: 'movie_edit', path: '/veo-script', roles: ['adm'] },
     { name: 'Trend Hunter', icon: 'radar', path: '/trends', roles: ['free', 'pro', 'adm'] },
     { name: 'Planos & Créditos', icon: 'auto_awesome_motion', path: '/plans', roles: ['free', 'pro', 'adm'] },
     { name: 'Configurações', icon: 'settings', path: '/settings', roles: ['free', 'pro', 'adm'] },

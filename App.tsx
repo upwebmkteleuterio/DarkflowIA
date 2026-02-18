@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, useParams, Link, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -145,12 +144,14 @@ const ProjectFlow: React.FC<{ projects: Project[], onUpdate: (p: Project) => voi
 
 const AppContent: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isProjectsLoading, setIsProjectsLoading] = useState(true);
   const { user, status, isLoading } = useAuth();
   const location = useLocation();
   const isPublicPage = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
 
   const loadProjects = useCallback(async () => {
     if (!user) return;
+    setIsProjectsLoading(true);
     const { data, error } = await supabase
       .from('projects')
       .select('*, script_items(*)')
@@ -170,6 +171,7 @@ const AppContent: React.FC = () => {
         items: p.script_items || [] 
       })));
     }
+    setIsProjectsLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -179,6 +181,7 @@ const AppContent: React.FC = () => {
       return () => { supabase.removeChannel(channel); };
     } else if (!isLoading && status === 'unauthenticated') {
       setProjects([]);
+      setIsProjectsLoading(false);
     }
   }, [status, user, isLoading, loadProjects]);
 
@@ -214,7 +217,7 @@ const AppContent: React.FC = () => {
       <div className="h-[100dvh] w-full bg-background-dark flex flex-col items-center justify-center gap-6">
         <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#8655f633]"></div>
         <div className="text-center space-y-2">
-           <h2 className="text-white font-black text-xl uppercase tracking-[0.3em] italic">DarkFlow</h2>
+           <h2 className="h-4 w-32 bg-slate-800 rounded animate-pulse mx-auto"></h2>
            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Sincronizando Sessão...</p>
         </div>
       </div>
@@ -230,9 +233,9 @@ const AppContent: React.FC = () => {
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard projects={projects} setProjects={setProjects} onCreateProject={createNewProject} isLoading={isProjectsLoading} /></ProtectedRoute>} />
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectFlow projects={projects} onUpdate={handleUpdateProject} /></ProtectedRoute>} />
-          <Route path="/veo-script" element={<ProtectedRoute><VeoScript /></ProtectedRoute>} />
+          <Route path="/veo-script" element={<ProtectedRoute roles={['adm']}><VeoScript /></ProtectedRoute>} />
           <Route path="/trends" element={<ProtectedRoute><TrendHunter /></ProtectedRoute>} />
           <Route path="/title-generator" element={<ProtectedRoute><TitleGenerator /></ProtectedRoute>} />
           <Route path="/plans" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
